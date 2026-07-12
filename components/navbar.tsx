@@ -2,19 +2,22 @@
 
 import { useEffect, useState } from "react";
 import { ThemePicker } from "./theme-picker";
-
-const links = [
-  { href: "#about", label: "About", n: "01" },
-  { href: "#skills", label: "Skills", n: "02" },
-  { href: "#work", label: "Journey", n: "03" },
-  { href: "#projects", label: "Work", n: "04" },
-  { href: "#terminal", label: "Shell", n: "05" },
-  { href: "#contact", label: "Contact", n: "06" },
-];
+import { LangToggle } from "./lang-toggle";
+import { useLang } from "./lang-provider";
 
 export function Navbar() {
+  const { t } = useLang();
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
+
+  const links = [
+    { href: "#about", label: t.nav.about, n: "01" },
+    { href: "#skills", label: t.nav.skills, n: "02" },
+    { href: "#work", label: t.nav.journey, n: "03" },
+    { href: "#projects", label: t.nav.work, n: "04" },
+    { href: "#terminal", label: t.nav.shell, n: "05" },
+    { href: "#contact", label: t.nav.contact, n: "06" },
+  ];
 
   useEffect(() => {
     let ticking = false;
@@ -34,9 +37,7 @@ export function Navbar() {
   return (
     <header className="fixed inset-x-0 top-0 z-50">
       <div
-        className={`transition-all duration-300 ${
-          scrolled ? "backdrop-blur-xl" : ""
-        }`}
+        className={`transition-all duration-300 ${scrolled ? "backdrop-blur-xl" : ""}`}
         style={{
           background: scrolled ? "color-mix(in srgb, var(--bg) 78%, transparent)" : "transparent",
           borderBottom: scrolled ? "1px solid var(--line)" : "1px solid transparent",
@@ -44,24 +45,17 @@ export function Navbar() {
       >
         <nav className="wrap flex h-16 items-center justify-between">
           <a href="#top" className="group flex items-center gap-2.5">
-            <span
-              className="grid h-8 w-8 place-items-center rounded-lg font-display text-lg font-semibold"
-              style={{ background: "var(--accent)", color: "var(--on-accent)" }}
-            >
+            <span className="grid h-8 w-8 place-items-center rounded-lg font-display text-lg font-semibold" style={{ background: "var(--accent)", color: "var(--on-accent)" }}>
               S
             </span>
-            <span className="font-display text-lg font-semibold tracking-tight">
+            <span className="font-display text-lg font-semibold tracking-tight force-ltr">
               saleh<span className="accent-text">.</span>im
             </span>
           </a>
 
           <div className="hidden items-center gap-1 lg:flex">
             {links.map((l) => (
-              <a
-                key={l.href}
-                href={l.href}
-                className="group flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm text-[var(--fg-2)] transition-colors hover:text-[var(--fg)]"
-              >
+              <a key={l.href} href={l.href} className="group flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm text-[var(--fg-2)] transition-colors hover:text-[var(--fg)]">
                 <span className="mono text-[10px] opacity-50">{l.n}</span>
                 {l.label}
               </a>
@@ -69,10 +63,11 @@ export function Navbar() {
           </div>
 
           <div className="flex items-center gap-2">
+            <LangToggle />
             <ThemePicker />
             <button
               type="button"
-              aria-label="Toggle menu"
+              aria-label={t.nav.menu}
               onClick={() => setOpen((v) => !v)}
               className="grid h-9 w-9 place-items-center rounded-full border lg:hidden"
               style={{ borderColor: "var(--line-2)" }}
@@ -89,12 +84,7 @@ export function Navbar() {
         <div className="lg:hidden" style={{ background: "var(--bg)", borderBottom: "1px solid var(--line)" }}>
           <div className="wrap grid gap-1 py-4">
             {links.map((l) => (
-              <a
-                key={l.href}
-                href={l.href}
-                onClick={() => setOpen(false)}
-                className="flex items-center gap-3 rounded-xl px-3 py-3 text-[var(--fg-2)] hover:bg-[var(--bg-2)] hover:text-[var(--fg)]"
-              >
+              <a key={l.href} href={l.href} onClick={() => setOpen(false)} className="flex items-center gap-3 rounded-xl px-3 py-3 text-[var(--fg-2)] hover:bg-[var(--bg-2)] hover:text-[var(--fg)]">
                 <span className="mono text-xs opacity-50">{l.n}</span>
                 <span className="text-lg">{l.label}</span>
               </a>

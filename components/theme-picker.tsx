@@ -3,9 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import { THEMES } from "@/lib/themes";
 import { useThemeScene } from "./theme-provider";
+import { useLang } from "./lang-provider";
 
 export function ThemePicker() {
   const { theme, setTheme, toggleMode } = useThemeScene();
+  const { t, lang } = useLang();
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -68,43 +70,47 @@ export function ThemePicker() {
             />
           ))}
         </span>
-        <span className="mono text-[11px] uppercase tracking-widest">{mounted ? active.name : "theme"}</span>
+        <span className="mono text-[11px] uppercase tracking-widest">
+          {mounted ? (lang === "fa" ? active.nameFa : active.name) : t.theme.pick}
+        </span>
       </button>
 
       {open && (
         <div
-          className="panel absolute right-0 top-11 z-[60] w-64 origin-top-right p-2 shadow-2xl"
+          className="panel absolute end-0 top-11 z-[60] w-64 p-2 shadow-2xl"
           style={{ boxShadow: `0 20px 60px -20px var(--shadow)` }}
         >
-          <p className="label px-2 py-2">Pick a scene</p>
+          <p className="label px-2 py-2">{t.theme.pick}</p>
           <div className="grid gap-1">
-            {THEMES.map((t) => (
+            {THEMES.map((scene) => (
               <button
-                key={t.id}
+                key={scene.id}
                 onClick={() => {
-                  setTheme(t.id);
+                  setTheme(scene.id);
                   setOpen(false);
                 }}
-                className="flex items-center gap-3 rounded-xl px-2 py-2 text-left transition-colors hover:bg-[var(--bg-3)]"
+                className="flex items-center gap-3 rounded-xl px-2 py-2 text-start transition-colors hover:bg-[var(--bg-3)]"
                 style={{
-                  background: t.id === theme ? "var(--bg-3)" : "transparent",
+                  background: scene.id === theme ? "var(--bg-3)" : "transparent",
                 }}
               >
                 <span className="flex shrink-0 overflow-hidden rounded-lg border" style={{ borderColor: "var(--line)" }}>
-                  {t.swatch.map((c, i) => (
+                  {scene.swatch.map((c, i) => (
                     <span key={i} className="h-8 w-4" style={{ background: c }} />
                   ))}
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="flex items-center gap-2 text-sm font-medium">
-                    {t.name}
+                    {lang === "fa" ? scene.nameFa : scene.name}
                     <span className="mono text-[9px] uppercase tracking-wider text-[var(--fg-2)]">
-                      {t.mode}
+                      {scene.mode === "dark" ? t.theme.dark : t.theme.light}
                     </span>
                   </span>
-                  <span className="block truncate text-xs text-[var(--fg-2)]">{t.blurb}</span>
+                  <span className="block truncate text-xs text-[var(--fg-2)]">
+                    {lang === "fa" ? scene.blurbFa : scene.blurb}
+                  </span>
                 </span>
-                {t.id === theme && (
+                {scene.id === theme && (
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M20 6 9 17l-5-5" />
                   </svg>

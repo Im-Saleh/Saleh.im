@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Reveal } from "./reveal";
-import { profile, projects, domains } from "@/lib/data";
+import { profile, projects, domains, BASE_PATH } from "@/lib/data";
+import { useLang } from "./lang-provider";
 
 type Line = { type: "out" | "cmd" | "sys"; text: string };
 
@@ -37,28 +38,28 @@ function runCommand(raw: string): string[] {
       return HELP.split("\n");
     case "about":
       return [
-        `${profile.name}  (aka "${profile.nickname}")`,
-        `${profile.role} · ${profile.age} y/o · ${profile.location}`,
+        `${profile.name.en}  (aka "${profile.nickname.en}")`,
+        `${profile.role.en} · ${profile.location.en}`,
         "",
-        "Self-taught engineer shipping open-source since 2022.",
-        "Focus: Cloudflare Workers, edge runtimes, networking & full-stack.",
+        "Self-taught engineer shipping in public since 2022.",
+        "Focus: fast web products, real-time systems & applied cryptography.",
       ];
     case "skills":
       return domains.flatMap((d) => [
-        `${d.title}:`,
-        ...d.skills.map((s) => `   ${s.name.padEnd(26)} ${s.level}%  (${s.years})`),
+        `${d.title.en}:`,
+        ...d.skills.map((s) => `   ${s.name.en.padEnd(26)} ${s.level}%  (${s.years.en})`),
       ]);
     case "projects":
       return projects
         .filter((p) => p.featured)
-        .flatMap((p) => [`• ${p.title}`, `    ${p.description.slice(0, 72)}…`, `    ↳ ${p.href}`]);
+        .flatMap((p) => [`• ${p.title.en}`, `    ${p.description.en.slice(0, 72)}…`, `    ↳ ${p.href}`]);
     case "experience":
     case "exp":
       return [
-        "2022     started on GitHub — open-source networking tools",
-        "2023     proxy / tunneling infrastructure (Xray, V2Ray)",
-        "2024     edge computing on Cloudflare Workers",
-        "2025-26  cross-platform apps, dashboards & encrypted messengers",
+        "2022     first commits — open-source & personal projects",
+        "2023     full-stack foundations (TypeScript, React)",
+        "2024     real-time & systems (WebRTC, streaming)",
+        "2025-26  products & cryptography — encrypted apps, design systems",
       ];
     case "socials":
     case "contact":
@@ -75,8 +76,7 @@ function runCommand(raw: string): string[] {
       return [args.join(" ")];
     case "open":
       if (/messeng|chat|cipher/i.test(args[0] || "")) {
-        if (typeof window !== "undefined")
-          window.open(`${process.env.NEXT_PUBLIC_BASE_PATH || ""}/apps/messenger/`, "_blank");
+        if (typeof window !== "undefined") window.open(`${BASE_PATH}/apps/messenger/`, "_blank");
         return ["opening Cipher messenger in a new tab…"];
       }
       return [`open: unknown app '${args[0] || ""}'. try: open messenger`];
@@ -88,8 +88,8 @@ function runCommand(raw: string): string[] {
         "shell     zsh 5.9",
         "editor    nvim / VS Code",
         "uptime    since 2022",
-        "langs     TypeScript · Kotlin · Python · Go",
-        "cloud     Cloudflare Workers",
+        "langs     TypeScript · JavaScript · Rust · Go · Python",
+        "stack     React · Next.js · Node.js",
         "cpu       caffeine-powered",
       ];
     case "sudo":
@@ -97,9 +97,7 @@ function runCommand(raw: string): string[] {
     case "ls":
       return ["about  skills  projects  experience  socials  apps/messenger"];
     case "cat":
-      return args.length
-        ? [`cat: ${args[0]}: permission denied (it's a secret)`]
-        : ["usage: cat <file>"];
+      return args.length ? [`cat: ${args[0]}: permission denied (it's a secret)`] : ["usage: cat <file>"];
     case "exit":
       return ["Connection to saleh.im closed."];
     default:
@@ -112,14 +110,15 @@ const INTRO: { cmd: string; out: string[] }[] = [
   {
     cmd: "cat welcome.txt",
     out: [
-      `welcome — I'm ${profile.name}.`,
-      `${profile.role}, building at the edge since 2022.`,
+      `welcome — I'm ${profile.name.en}.`,
+      `${profile.role.en}, shipping since 2022.`,
       "type 'help' to explore. try: about, projects, neofetch.",
     ],
   },
 ];
 
 export function Terminal() {
+  const { t } = useLang();
   const [lines, setLines] = useState<Line[]>([]);
   const [value, setValue] = useState("");
   const [history, setHistory] = useState<string[]>([]);
@@ -160,10 +159,7 @@ export function Terminal() {
     const type = async (text: string, onChar: (partial: string) => void) => {
       for (let i = 1; i <= text.length; i++) {
         if (cancelled) return;
-        await new Promise<void>((resolve) => {
-          const t = setTimeout(resolve, 24 + Math.random() * 38);
-          timers.push(t);
-        });
+        await new Promise<void>((resolve) => timers.push(setTimeout(resolve, 24 + Math.random() * 38)));
         onChar(text.slice(0, i));
       }
     };
@@ -239,16 +235,13 @@ export function Terminal() {
         <div className="grid gap-10 lg:grid-cols-12 lg:gap-8">
           <div className="lg:col-span-4">
             <Reveal>
-              <p className="label">05 / Shell</p>
+              <p className="label">{t.shell.eyebrow}</p>
               <h2 className="display mt-3 text-5xl sm:text-6xl">
-                Prefer a<br />
-                <span className="display-italic accent-text">terminal?</span>
+                {t.shell.heading1}
+                <br />
+                <span className="display-italic accent-text">{t.shell.heading2}</span>
               </h2>
-              <p className="mt-6 max-w-sm text-[var(--fg-2)]">
-                A real, interactive shell. It boots on its own — then it&apos;s yours.
-                Type <code className="mono rounded px-1.5 py-0.5" style={{ background: "var(--bg-3)" }}>help</code> to
-                begin, or <code className="mono rounded px-1.5 py-0.5" style={{ background: "var(--bg-3)" }}>open messenger</code>.
-              </p>
+              <p className="mt-6 max-w-sm text-[var(--fg-2)]">{t.shell.sub}</p>
               <div className="mt-6 flex flex-wrap gap-2">
                 {["help", "about", "projects", "neofetch"].map((c) => (
                   <button
@@ -257,7 +250,7 @@ export function Terminal() {
                       if (interactive) submit(c);
                       inputRef.current?.focus();
                     }}
-                    className="chip transition-colors hover:text-[var(--fg)]"
+                    className="chip force-ltr transition-colors hover:text-[var(--fg)]"
                   >
                     {c}
                   </button>
@@ -269,6 +262,7 @@ export function Terminal() {
           <div className="lg:col-span-8">
             <Reveal delay={80}>
               <div
+                dir="ltr"
                 className="overflow-hidden rounded-2xl"
                 style={{ background: "#07090a", border: "1px solid var(--line-2)", boxShadow: "0 30px 80px -30px var(--shadow)" }}
                 onClick={() => inputRef.current?.focus()}
@@ -279,17 +273,11 @@ export function Terminal() {
                     <span className="h-3 w-3 rounded-full" style={{ background: "#ffbd2e" }} />
                     <span className="h-3 w-3 rounded-full" style={{ background: "#27c93f" }} />
                   </div>
-                  <span className="mono text-xs" style={{ color: "var(--accent)" }}>
-                    {USER}@{HOST}: ~ — zsh
-                  </span>
+                  <span className="mono text-xs" style={{ color: "var(--accent)" }}>{USER}@{HOST}: ~ — zsh</span>
                   <span className="w-12" />
                 </div>
 
-                <div
-                  ref={scrollRef}
-                  className="mono h-[380px] overflow-y-auto px-4 py-4 text-[13px] leading-relaxed sm:text-sm"
-                  style={{ color: "var(--accent)" }}
-                >
+                <div ref={scrollRef} className="mono h-[380px] overflow-y-auto px-4 py-4 text-[13px] leading-relaxed sm:text-sm" style={{ color: "var(--accent)" }}>
                   {lines.map((line, i) => {
                     if (line.type === "cmd")
                       return (
@@ -299,16 +287,8 @@ export function Terminal() {
                         </div>
                       );
                     if (line.type === "sys")
-                      return (
-                        <div key={i} className="my-1 whitespace-pre-wrap break-words" style={{ opacity: 0.45 }}>
-                          {line.text}
-                        </div>
-                      );
-                    return (
-                      <div key={i} className="whitespace-pre-wrap break-words" style={{ opacity: 0.9 }}>
-                        {line.text}
-                      </div>
-                    );
+                      return <div key={i} className="my-1 whitespace-pre-wrap break-words" style={{ opacity: 0.45 }}>{line.text}</div>;
+                    return <div key={i} className="whitespace-pre-wrap break-words" style={{ opacity: 0.9 }}>{line.text}</div>;
                   })}
 
                   {interactive && (
@@ -316,7 +296,7 @@ export function Terminal() {
                       <span className="shrink-0" style={{ opacity: 0.7 }}>{PROMPT}</span>
                       <span className="relative flex-1">
                         <span className="whitespace-pre-wrap break-words" style={{ color: "#e8ffe0" }}>{value}</span>
-                        <span className="caret ml-0.5 inline-block h-4 w-2 translate-y-0.5 align-middle" style={{ background: "var(--accent)" }} />
+                        <span className="caret ms-0.5 inline-block h-4 w-2 translate-y-0.5 align-middle" style={{ background: "var(--accent)" }} />
                         <input
                           ref={inputRef}
                           value={value}

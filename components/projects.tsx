@@ -2,7 +2,8 @@
 
 import { useRef } from "react";
 import { Reveal } from "./reveal";
-import { projects, type Project } from "@/lib/data";
+import { projects, pick, profile, type Project } from "@/lib/data";
+import { useLang } from "./lang-provider";
 
 function Arrow({ external }: { external?: boolean }) {
   return (
@@ -25,6 +26,7 @@ function useSheen() {
 }
 
 function FeatureCard({ p }: { p: Project }) {
+  const { t, lang } = useLang();
   const { ref, onMove } = useSheen();
   const external = !p.internal;
   return (
@@ -43,29 +45,18 @@ function FeatureCard({ p }: { p: Project }) {
       }}
     >
       <div className="flex items-start justify-between">
-        <span
-          className="mono text-xs uppercase tracking-widest"
-          style={{ opacity: 0.7 }}
-        >
-          {p.internal ? "Live · in-browser" : `Repo · ${p.year}`}
+        <span className="mono text-xs uppercase tracking-widest" style={{ opacity: 0.7 }}>
+          {p.internal ? t.projects.live : `${t.projects.repoBadge} · ${p.year}`}
         </span>
         <Arrow external={external} />
       </div>
       <div>
-        <h3 className="display text-4xl sm:text-5xl">{p.title}</h3>
-        <p className="mt-4 max-w-md leading-relaxed" style={{ opacity: 0.82 }}>
-          {p.description}
-        </p>
+        <h3 className="display text-4xl sm:text-5xl">{pick(p.title, lang)}</h3>
+        <p className="mt-4 max-w-md leading-relaxed" style={{ opacity: 0.82 }}>{pick(p.description, lang)}</p>
         <div className="mt-6 flex flex-wrap gap-2">
-          {p.tags.map((t) => (
-            <span
-              key={t}
-              className="rounded-full px-3 py-1 mono text-[11px]"
-              style={{
-                border: `1px solid ${p.accent ? "rgba(0,0,0,0.2)" : "var(--line-2)"}`,
-              }}
-            >
-              {t}
+          {p.tags.map((tag) => (
+            <span key={tag} className="rounded-full px-3 py-1 mono text-[11px] force-ltr" style={{ border: `1px solid ${p.accent ? "rgba(0,0,0,0.2)" : "var(--line-2)"}` }}>
+              {tag}
             </span>
           ))}
         </div>
@@ -75,6 +66,7 @@ function FeatureCard({ p }: { p: Project }) {
 }
 
 function ListRow({ p, i }: { p: Project; i: number }) {
+  const { t, lang } = useLang();
   const external = !p.internal;
   return (
     <a
@@ -85,22 +77,20 @@ function ListRow({ p, i }: { p: Project; i: number }) {
       style={{ borderTop: "1px solid var(--line)" }}
     >
       <span className="mono text-sm text-[var(--fg-2)] sm:col-span-1">
-        {String(i + 1).padStart(2, "0")}
+        {lang === "fa" ? (i + 1).toLocaleString("fa-IR") : String(i + 1).padStart(2, "0")}
       </span>
       <div className="sm:col-span-4">
-        <h3 className="font-display text-2xl transition-colors group-hover:text-[var(--accent)]">
-          {p.title}
-        </h3>
-        <span className="mono text-xs text-[var(--fg-2)]">{p.year}</span>
+        <h3 className="font-display text-2xl transition-colors group-hover:text-[var(--accent)]">{pick(p.title, lang)}</h3>
+        <span className="mono text-xs text-[var(--fg-2)] force-ltr">{p.year}</span>
       </div>
-      <p className="text-[var(--fg-2)] sm:col-span-5">{p.description}</p>
+      <p className="text-[var(--fg-2)] sm:col-span-5">{pick(p.description, lang)}</p>
       <div className="flex items-center justify-between sm:col-span-2 sm:justify-end">
         <div className="hidden flex-wrap justify-end gap-1.5 sm:flex">
-          {p.tags.slice(0, 2).map((t) => (
-            <span key={t} className="chip">{t}</span>
+          {p.tags.slice(0, 2).map((tag) => (
+            <span key={tag} className="chip force-ltr">{tag}</span>
           ))}
         </div>
-        <span className="ml-3 opacity-60 transition-all group-hover:opacity-100">
+        <span className="ms-3 opacity-60 transition-all group-hover:opacity-100">
           <Arrow external={external} />
         </span>
       </div>
@@ -109,6 +99,7 @@ function ListRow({ p, i }: { p: Project; i: number }) {
 }
 
 export function Projects() {
+  const { t } = useLang();
   const featured = projects.filter((p) => p.featured);
   const rest = projects.filter((p) => !p.featured);
 
@@ -118,18 +109,13 @@ export function Projects() {
         <Reveal>
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
-              <p className="label">04 / Selected work</p>
+              <p className="label">{t.projects.eyebrow}</p>
               <h2 className="display mt-3 text-5xl sm:text-6xl">
-                Things I&apos;ve <span className="display-italic accent-text">built.</span>
+                {t.projects.heading1} <span className="display-italic accent-text">{t.projects.heading2}</span>
               </h2>
             </div>
-            <a
-              href="https://github.com/W2F-Sa?tab=repositories"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="btn btn-outline"
-            >
-              All 30+ repos ↗
+            <a href={profile.github} target="_blank" rel="noopener noreferrer" className="btn btn-outline">
+              {t.projects.all} ↗
             </a>
           </div>
         </Reveal>
