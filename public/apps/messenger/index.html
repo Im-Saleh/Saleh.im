@@ -1,91 +1,157 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="carbon">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
-  <meta name="theme-color" content="#060606" />
-  <title>Peer — P2P Messenger by Saleh</title>
-  <meta name="description" content="A serverless peer-to-peer messenger over WebRTC. Messages travel directly between browsers." />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b0c0e" />
+  <title>Cipher — Encrypted Messenger by Saleh</title>
+  <meta name="description" content="One messenger, two modes. P2P with encrypted on-device history, and ephemeral Secret chat. Heavy multi-layer end-to-end encryption over WebRTC." />
   <link rel="icon" href="../../favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,500&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="./style.css" />
 </head>
 <body>
   <a class="back" href="../../">← saleh.im</a>
 
-  <!-- LOGIN -->
-  <section id="login" class="screen active">
-    <div class="card">
-      <div class="brand">
-        <span class="logo">P</span>
-        <div>
-          <h1>Peer</h1>
-          <p class="muted">Serverless P2P messenger · WebRTC</p>
+  <!-- ============ AUTH ============ -->
+  <section id="auth" class="stage active">
+    <div class="auth-grid">
+      <div class="auth-brand">
+        <div class="logo-badge">◆</div>
+        <h1 class="display">Cipher</h1>
+        <p class="tagline">One messenger. Two modes.<br />Heavy end-to-end encryption, always.</p>
+        <ul class="feature-list">
+          <li><b>P2P</b> — direct browser-to-browser, history kept encrypted on your device.</li>
+          <li><b>Secret</b> — fully ephemeral, nothing stored, self-destructing.</li>
+          <li><b>4-layer</b> seal: ECDH → AES-256-GCM → AES-256-GCM → HMAC stream.</li>
+        </ul>
+        <div class="crypto-strip">
+          <span>ECDH P-256</span><span>AES-256-GCM ×2</span><span>HMAC-SHA256</span><span>PBKDF2 310k</span>
         </div>
       </div>
-      <form id="login-form" autocomplete="off">
-        <label>Username
-          <input id="username" type="text" placeholder="e.g. saleh" required minlength="3" maxlength="24" />
-        </label>
-        <label>Password
-          <input id="password" type="password" placeholder="your secret" required minlength="4" />
-        </label>
-        <button class="btn primary" type="submit">Sign in &amp; go online</button>
-        <p class="hint" id="login-hint">Your ID is derived from these credentials — share your username so a friend can connect. No server stores anything.</p>
-      </form>
+
+      <div class="auth-card">
+        <form id="auth-form" autocomplete="off">
+          <p class="eyebrow">Sign in to go online</p>
+          <label>Username
+            <input id="username" type="text" placeholder="e.g. saleh" required minlength="3" maxlength="24" />
+          </label>
+          <label>Password
+            <input id="password" type="password" placeholder="your secret" required minlength="4" />
+          </label>
+          <button class="btn accent" type="submit">Continue →</button>
+          <p class="fineprint">Your ID is derived locally from these credentials. In P2P mode your password also encrypts your on-device history. Nothing is uploaded.</p>
+        </form>
+      </div>
     </div>
   </section>
 
-  <!-- APP -->
-  <section id="app" class="screen">
-    <aside class="sidebar">
-      <div class="me">
+  <!-- ============ MODE PICKER ============ -->
+  <section id="mode" class="stage">
+    <div class="mode-wrap">
+      <p class="eyebrow center">Choose how you talk, <b id="mode-hello">friend</b></p>
+      <div class="mode-cards">
+        <button class="mode-card" data-mode="p2p">
+          <span class="mode-icon">⇄</span>
+          <h2 class="display">P2P</h2>
+          <p>Direct peer-to-peer chat. Messages are <b>saved</b> — encrypted at rest on your device with your password.</p>
+          <ul>
+            <li>Persistent history</li>
+            <li>Reconnect anytime</li>
+            <li>Encrypted transport + storage</li>
+          </ul>
+          <span class="mode-go">Enter P2P →</span>
+        </button>
+        <button class="mode-card secret" data-mode="secret">
+          <span class="mode-icon">🕶</span>
+          <h2 class="display">Secret</h2>
+          <p>Anti-surveillance mode. <b>Nothing is stored.</b> Ephemeral keys, padded traffic, optional self-destruct.</p>
+          <ul>
+            <li>Zero persistence</li>
+            <li>Extra passphrase lock</li>
+            <li>Self-destructing messages</li>
+          </ul>
+          <span class="mode-go">Enter Secret →</span>
+        </button>
+      </div>
+      <button id="mode-back" class="linky">← sign out</button>
+    </div>
+  </section>
+
+  <!-- ============ CHAT ============ -->
+  <section id="chat" class="stage">
+    <aside class="sidebar" id="sidebar">
+      <div class="me-bar">
         <span class="avatar" id="me-avatar">S</span>
-        <div class="me-info">
+        <div class="me-meta">
           <strong id="me-name">…</strong>
-          <span class="status" id="me-status"><i class="dot"></i> connecting…</span>
+          <span class="me-status" id="me-status"><i class="dot"></i> connecting…</span>
         </div>
-        <button id="logout" class="icon-btn" title="Sign out">⎋</button>
+        <button id="switch-mode" class="icon-btn" title="Change mode">⇆</button>
       </div>
 
-      <div class="connect-box">
-        <p class="label">Connect to a peer</p>
-        <div class="row">
-          <input id="peer-id" type="text" placeholder="friend's username" autocomplete="off" />
-          <button id="connect-btn" class="btn primary sm">Connect</button>
+      <div class="mode-flag" id="mode-flag">P2P mode</div>
+
+      <div class="connect">
+        <p class="eyebrow">Start a conversation</p>
+        <div class="connect-row">
+          <input id="peer-id" type="text" placeholder="peer's username" autocomplete="off" />
+          <button id="connect-btn" class="btn accent tiny">Link</button>
         </div>
-        <p class="hint">Share your username <b id="my-share">…</b> for others to reach you.</p>
+        <div id="secret-extra" class="secret-extra" hidden>
+          <input id="room-secret" type="password" placeholder="shared passphrase (both must match)" autocomplete="off" />
+          <p class="hint">In Secret mode both peers enter the same passphrase for an extra encryption lock.</p>
+        </div>
+        <p class="hint">Share your username <b id="my-share">…</b> so others can reach you.</p>
       </div>
 
-      <div class="peers">
-        <p class="label">Conversations</p>
-        <ul id="peer-list"></ul>
+      <div class="threads">
+        <p class="eyebrow">Conversations</p>
+        <ul id="thread-list"></ul>
+        <p id="no-threads" class="hint">No conversations yet.</p>
       </div>
+
+      <button id="logout" class="linky">← sign out</button>
     </aside>
 
-    <main class="chat">
-      <header class="chat-head">
-        <div>
-          <strong id="chat-title">No conversation</strong>
-          <span class="status" id="chat-status">Select or start a chat</span>
+    <main class="conv">
+      <header class="conv-head">
+        <button id="back-to-list" class="icon-btn only-mobile">←</button>
+        <div class="conv-title">
+          <strong id="conv-name">No conversation</strong>
+          <span class="me-status" id="conv-status">select or start a chat</span>
         </div>
-        <span class="badge" id="rtc-badge">P2P · encrypted transport</span>
+        <div class="conv-badges">
+          <span class="fp" id="fingerprint" title="Session key fingerprint — compare with your peer"></span>
+          <span class="seal-badge" id="seal-badge">🔒 4-layer</span>
+        </div>
       </header>
 
+      <div id="secret-banner" class="secret-banner" hidden>
+        <span>● ephemeral</span><span>● zero-metadata</span><span>● padded</span>
+        <label class="sd"><input type="checkbox" id="self-destruct" /> self-destruct 60s</label>
+      </div>
+
       <div id="messages" class="messages">
-        <div class="empty" id="empty-state">
-          <div class="empty-icon">🔗</div>
-          <p>Connect to a peer by their username to start a direct, browser-to-browser chat.</p>
+        <div class="empty" id="empty">
+          <div class="empty-mark">◆</div>
+          <p>Link to a peer by their username to open a sealed channel.</p>
         </div>
       </div>
 
       <form id="send-form" class="composer" autocomplete="off">
         <input id="msg-input" type="text" placeholder="Type a message…" disabled />
-        <button class="btn primary" type="submit" disabled id="send-btn">Send</button>
+        <button class="btn accent" type="submit" id="send-btn" disabled>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
+        </button>
       </form>
     </main>
   </section>
 
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <script src="./crypto.js"></script>
   <script src="./app.js"></script>
 </body>
 </html>

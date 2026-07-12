@@ -1,39 +1,140 @@
+"use client";
+
+import { useState } from "react";
 import { Reveal } from "./reveal";
-import { skills } from "@/lib/data";
+import { domains } from "@/lib/data";
 
 export function Skills() {
+  const [activeDomain, setActiveDomain] = useState(0);
+  const [openSkill, setOpenSkill] = useState<string | null>(
+    domains[0].skills[0].name
+  );
+
+  const domain = domains[activeDomain];
+
   return (
-    <section id="skills" className="scroll-mt-20 py-20 sm:py-28">
-      <div className="container-page">
+    <section id="skills" className="relative scroll-mt-24 py-24 sm:py-32">
+      <div className="wrap">
         <Reveal>
-          <span className="section-label">02 — Skills</span>
-          <h2 className="heading-lg">Tools I build with</h2>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="label">02 / Capabilities</p>
+              <h2 className="display mt-3 text-5xl sm:text-6xl">
+                What I actually
+                <br />
+                <span className="display-italic accent-text">know how to do.</span>
+              </h2>
+            </div>
+            <p className="max-w-xs text-[var(--fg-2)]">
+              Not a wall of logos. Three domains I&apos;ve shipped real, running
+              software in — tap any skill to read the story behind it.
+            </p>
+          </div>
         </Reveal>
 
-        <div className="mt-10 grid gap-4 sm:grid-cols-2">
-          {skills.map((group, i) => (
-            <Reveal key={group.label} delay={i * 70}>
-              <div className="card group h-full p-6 transition-transform duration-300 hover:-translate-y-1">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-medium">{group.label}</h3>
-                  <span className="font-mono text-xs text-[var(--fg-muted)]">
-                    0{i + 1}
-                  </span>
-                </div>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {group.items.map((item) => (
-                    <span
-                      key={item}
-                      className="rounded-full border px-3 py-1.5 text-sm text-[var(--fg-muted)] transition-colors group-hover:text-[var(--fg)]"
-                      style={{ borderColor: "var(--border)" }}
-                    >
-                      {item}
+        {/* domain switcher */}
+        <Reveal delay={80}>
+          <div className="mt-12 flex flex-wrap gap-2">
+            {domains.map((d, i) => (
+              <button
+                key={d.key}
+                onClick={() => {
+                  setActiveDomain(i);
+                  setOpenSkill(d.skills[0].name);
+                }}
+                className="rounded-full border px-4 py-2 text-sm transition-all"
+                style={{
+                  borderColor: i === activeDomain ? "transparent" : "var(--line-2)",
+                  background: i === activeDomain ? "var(--accent)" : "transparent",
+                  color: i === activeDomain ? "var(--on-accent)" : "var(--fg)",
+                }}
+              >
+                {d.title}
+              </button>
+            ))}
+          </div>
+        </Reveal>
+
+        <Reveal delay={120}>
+          <p className="mt-6 max-w-xl font-display text-xl italic text-[var(--fg-2)]">
+            “{domain.tagline}”
+          </p>
+        </Reveal>
+
+        {/* skill accordions */}
+        <div className="mt-8 grid gap-3">
+          {domain.skills.map((s, i) => {
+            const open = openSkill === s.name;
+            return (
+              <Reveal key={s.name} delay={i * 60}>
+                <div
+                  className="panel overflow-hidden transition-colors"
+                  style={{ borderColor: open ? "var(--line-2)" : "var(--line)" }}
+                >
+                  <button
+                    onClick={() => setOpenSkill(open ? null : s.name)}
+                    className="flex w-full items-center gap-4 p-5 text-left sm:p-6"
+                  >
+                    <span className="mono text-xs text-[var(--fg-2)]">
+                      {String(i + 1).padStart(2, "0")}
                     </span>
-                  ))}
+                    <span className="min-w-0 flex-1">
+                      <span className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                        <span className="font-display text-2xl sm:text-3xl">{s.name}</span>
+                        <span className="mono text-xs text-[var(--fg-2)]">{s.years}</span>
+                      </span>
+                      {!open && (
+                        <span className="mt-1 block text-sm text-[var(--fg-2)]">{s.summary}</span>
+                      )}
+                    </span>
+                    {/* mini gauge */}
+                    <span className="hidden items-center gap-2 sm:flex">
+                      <span className="mono text-sm" style={{ color: "var(--accent)" }}>
+                        {s.level}
+                      </span>
+                      <span className="h-1.5 w-24 overflow-hidden rounded-full" style={{ background: "var(--bg-3)" }}>
+                        <span
+                          className="block h-full rounded-full transition-all duration-700"
+                          style={{ width: open ? `${s.level}%` : "0%", background: "var(--accent)" }}
+                        />
+                      </span>
+                    </span>
+                    <span
+                      className="grid h-8 w-8 shrink-0 place-items-center rounded-full border transition-transform duration-300"
+                      style={{ borderColor: "var(--line-2)", transform: open ? "rotate(45deg)" : "none" }}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M12 5v14M5 12h14" strokeLinecap="round" />
+                      </svg>
+                    </span>
+                  </button>
+
+                  <div
+                    className="grid transition-all duration-400 ease-out"
+                    style={{ gridTemplateRows: open ? "1fr" : "0fr" }}
+                  >
+                    <div className="overflow-hidden">
+                      <div className="border-t px-5 pb-6 pt-5 sm:px-6" style={{ borderColor: "var(--line)" }}>
+                        <p className="max-w-2xl leading-relaxed text-[var(--fg-2)]">{s.detail}</p>
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          {s.tags.map((t) => (
+                            <span key={t} className="chip">{t}</span>
+                          ))}
+                        </div>
+                        {/* mobile gauge */}
+                        <div className="mt-4 flex items-center gap-3 sm:hidden">
+                          <span className="h-1.5 flex-1 overflow-hidden rounded-full" style={{ background: "var(--bg-3)" }}>
+                            <span className="block h-full rounded-full" style={{ width: `${s.level}%`, background: "var(--accent)" }} />
+                          </span>
+                          <span className="mono text-sm" style={{ color: "var(--accent)" }}>{s.level}%</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </Reveal>
-          ))}
+              </Reveal>
+            );
+          })}
         </div>
       </div>
     </section>

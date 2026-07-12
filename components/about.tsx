@@ -1,80 +1,96 @@
 import { Reveal } from "./reveal";
-import { profile, skills } from "@/lib/data";
-
-const marqueeItems = skills.flatMap((g) => g.items);
+import { profile } from "@/lib/data";
 
 export function About() {
   return (
-    <section id="about" className="scroll-mt-20 py-20 sm:py-28">
-      <div className="container-page">
-        <Reveal>
-          <span className="section-label">01 — About</span>
-          <h2 className="heading-lg max-w-3xl">
-            A teenage engineer obsessed with{" "}
-            <span className="text-[var(--fg-muted)]">
-              performance, networks and clean systems.
-            </span>
-          </h2>
-        </Reveal>
+    <section id="about" className="relative scroll-mt-24 py-24 sm:py-32">
+      <div className="wrap">
+        <div className="grid gap-12 lg:grid-cols-12 lg:gap-8">
+          {/* left rail */}
+          <div className="lg:col-span-4">
+            <Reveal>
+              <p className="label">01 / Who</p>
+              <div className="mt-6 panel p-6">
+                <div className="flex items-center gap-4">
+                  <span
+                    className="grid h-16 w-16 place-items-center rounded-2xl font-display text-3xl"
+                    style={{ background: "var(--accent)", color: "var(--on-accent)" }}
+                  >
+                    S
+                  </span>
+                  <div>
+                    <p className="font-display text-2xl leading-tight">{profile.name}</p>
+                    <p className="mono text-xs text-[var(--fg-2)]">{profile.nameFa}</p>
+                  </div>
+                </div>
+                <dl className="mt-6 space-y-0">
+                  {[
+                    ["Role", profile.role],
+                    ["Age", `${profile.age}`],
+                    ["Since", `${profile.activeSince}`],
+                    ["Based", profile.location],
+                    ["Status", "Open to work"],
+                  ].map(([k, v], i) => (
+                    <div
+                      key={k}
+                      className="flex items-center justify-between py-3"
+                      style={{ borderTop: i ? "1px solid var(--line)" : "none" }}
+                    >
+                      <dt className="label">{k}</dt>
+                      <dd className="text-sm font-medium">{v}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </div>
+            </Reveal>
+          </div>
 
-        <div className="mt-10 grid gap-8 lg:grid-cols-[1.4fr_1fr]">
-          <Reveal delay={80}>
-            <div className="space-y-5 text-base leading-relaxed text-[var(--fg-muted)] sm:text-lg">
-              <p>
-                I&apos;m <span className="text-[var(--fg)]">Saleh Saghafiani</span> — a{" "}
-                {profile.age}-year-old self-taught software and network engineer from{" "}
-                {profile.location}. I&apos;ve been shipping open-source code on GitHub since{" "}
-                <span className="text-[var(--fg)]">{profile.activeSince}</span>.
+          {/* right — the story */}
+          <div className="lg:col-span-8 lg:pl-8">
+            <Reveal delay={60}>
+              <p className="display text-3xl leading-[1.15] sm:text-[2.6rem]">
+                I&apos;m a teenage engineer who learned to code by
+                <span className="accent-text"> breaking things</span>,
+                reading source, and shipping in public — not by following
+                <span className="display-italic"> tutorials.</span>
               </p>
-              <p>
-                My playground is the network edge: Cloudflare Workers, serverless runtimes,
-                tunneling and proxy infrastructure. I love turning low-level networking
-                problems into fast, reliable products — and wrapping them in interfaces
-                that feel effortless.
-              </p>
-              <p>
-                From native Android apps in Kotlin to TypeScript dashboards and encrypted
-                peer-to-peer messengers, I build across the whole stack and care deeply
-                about the details: speed, resilience and craft.
-              </p>
+            </Reveal>
+
+            <div className="mt-10 grid gap-8 sm:grid-cols-2">
+              <Reveal delay={120}>
+                <p className="leading-relaxed text-[var(--fg-2)]">
+                  My playground is the network edge: Cloudflare Workers, serverless
+                  runtimes, tunneling and proxy infrastructure. I love taking a
+                  low-level networking problem and turning it into something fast,
+                  reliable, and genuinely nice to use.
+                </p>
+              </Reveal>
+              <Reveal delay={180}>
+                <p className="leading-relaxed text-[var(--fg-2)]">
+                  I move across the whole stack — native Android in Kotlin,
+                  TypeScript dashboards, encrypted peer-to-peer messengers — and I
+                  sweat the details: speed, resilience, and design that has an
+                  actual point of view.
+                </p>
+              </Reveal>
             </div>
-          </Reveal>
 
-          <Reveal delay={160}>
-            <div className="card p-6">
-              <h3 className="font-mono text-sm uppercase tracking-widest text-[var(--fg-muted)]">
-                At a glance
-              </h3>
-              <ul className="mt-4 space-y-3 text-sm">
-                {[
-                  ["Role", profile.role],
-                  ["Focus", "Edge · Networking · Full-stack"],
-                  ["Experience", `Active since ${profile.activeSince}`],
-                  ["Location", profile.location],
-                  ["Open to", "Freelance & collaboration"],
-                ].map(([k, v]) => (
-                  <li key={k} className="flex items-center justify-between gap-4 border-b pb-3 last:border-0 last:pb-0" style={{ borderColor: "var(--border)" }}>
-                    <span className="text-[var(--fg-muted)]">{k}</span>
-                    <span className="text-right font-medium">{v}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </Reveal>
-        </div>
-      </div>
-
-      {/* Tech marquee */}
-      <div className="marquee-mask mt-16 overflow-hidden py-2">
-        <div className="marquee-track">
-          {[...marqueeItems, ...marqueeItems].map((item, idx) => (
-            <span
-              key={idx}
-              className="mx-3 whitespace-nowrap font-mono text-2xl font-semibold text-[var(--fg-muted)] opacity-50 sm:text-3xl"
-            >
-              {item} <span className="mx-3 opacity-40">/</span>
-            </span>
-          ))}
+            <Reveal delay={220}>
+              <div className="mt-10 flex flex-wrap items-center gap-6 border-t pt-8" style={{ borderColor: "var(--line)" }}>
+                <span className="font-display text-xl italic text-[var(--fg-2)]">
+                  — building since {profile.activeSince}
+                </span>
+                <a
+                  href={profile.github}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="link-sweep mono text-sm"
+                >
+                  {profile.handle} ↗
+                </a>
+              </div>
+            </Reveal>
+          </div>
         </div>
       </div>
     </section>

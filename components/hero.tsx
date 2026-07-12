@@ -1,62 +1,31 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { profile } from "@/lib/data";
+import { profile, skills } from "@/lib/data";
 
-const roles = [
-  "Software Engineer",
-  "Network Engineer",
-  "Edge & Cloudflare Workers",
-  "Full-Stack Developer",
-];
-
-function useTypewriter(words: string[], speed = 70, pause = 1400) {
-  const [text, setText] = useState("");
-  const [i, setI] = useState(0);
-  const [deleting, setDeleting] = useState(false);
-
-  useEffect(() => {
-    const current = words[i % words.length];
-    let timeout: ReturnType<typeof setTimeout>;
-
-    if (!deleting && text === current) {
-      timeout = setTimeout(() => setDeleting(true), pause);
-    } else if (deleting && text === "") {
-      setDeleting(false);
-      setI((v) => v + 1);
-    } else {
-      timeout = setTimeout(
-        () => {
-          setText((prev) =>
-            deleting
-              ? current.slice(0, prev.length - 1)
-              : current.slice(0, prev.length + 1)
-          );
-        },
-        deleting ? speed / 2 : speed
-      );
-    }
-    return () => clearTimeout(timeout);
-  }, [text, deleting, i, words, speed, pause]);
-
-  return text;
-}
+const rotating = ["at the edge.", "over WebRTC.", "on Workers.", "in the terminal.", "for the web."];
 
 export function Hero() {
-  const typed = useTypewriter(roles);
-  const spotRef = useRef<HTMLDivElement>(null);
+  const [idx, setIdx] = useState(0);
+  const stageRef = useRef<HTMLDivElement>(null);
 
-  // Pointer spotlight — pointer events only (never on scroll), rAF-throttled.
   useEffect(() => {
-    const el = spotRef.current;
-    if (!el) return;
-    if (window.matchMedia("(pointer: coarse)").matches) return;
+    const t = setInterval(() => setIdx((v) => (v + 1) % rotating.length), 2600);
+    return () => clearInterval(t);
+  }, []);
+
+  // Parallax on aurora — pointer only, rAF-throttled, never on scroll.
+  useEffect(() => {
+    const el = stageRef.current;
+    if (!el || window.matchMedia("(pointer: coarse)").matches) return;
     let raf = 0;
     const onMove = (e: PointerEvent) => {
       if (raf) return;
       raf = requestAnimationFrame(() => {
-        el.style.setProperty("--mx", `${e.clientX}px`);
-        el.style.setProperty("--my", `${e.clientY}px`);
+        const x = (e.clientX / window.innerWidth - 0.5) * 24;
+        const y = (e.clientY / window.innerHeight - 0.5) * 24;
+        el.style.setProperty("--tx", `${x}px`);
+        el.style.setProperty("--ty", `${y}px`);
         raf = 0;
       });
     };
@@ -64,96 +33,112 @@ export function Hero() {
     return () => window.removeEventListener("pointermove", onMove);
   }, []);
 
-  return (
-    <section id="top" className="relative overflow-hidden pt-32 pb-20 sm:pt-40 sm:pb-28">
-      <div className="pointer-events-none absolute inset-0 grid-backdrop" aria-hidden />
-      <div
-        ref={spotRef}
-        className="pointer-events-none absolute inset-0 hidden md:block"
-        aria-hidden
-        style={{
-          background:
-            "radial-gradient(400px circle at var(--mx, 50%) var(--my, 20%), color-mix(in srgb, var(--fg) 7%, transparent), transparent 60%)",
-        }}
-      />
+  const marquee = skills.flatMap((g) => g.items);
 
-      <div className="container-page relative">
-        <div className="animate-fade-in">
-          <span className="section-label">
-            <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-70" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
-            </span>
-            Available for work · {profile.location}
+  return (
+    <section id="top" className="relative overflow-hidden pt-28 sm:pt-32">
+      {/* backdrop */}
+      <div ref={stageRef} className="pointer-events-none absolute inset-0" aria-hidden>
+        <div className="absolute inset-0 dotfield" />
+        <div
+          className="aurora left-[8%] top-[14%] h-72 w-72"
+          style={{ background: "var(--accent)", transform: "translate3d(var(--tx,0),var(--ty,0),0)" }}
+        />
+        <div
+          className="aurora right-[6%] top-[30%] h-64 w-64"
+          style={{ background: "var(--accent-2)", opacity: 0.28, animationDelay: "-6s" }}
+        />
+      </div>
+
+      <div className="wrap relative">
+        {/* top status strip */}
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 border-b pb-4 text-sm" style={{ borderColor: "var(--line)" }}>
+          <span className="tag-dot text-[var(--fg-2)]">Available for freelance</span>
+          <span className="mono text-xs text-[var(--fg-2)]">{profile.location}</span>
+          <span className="mono ml-auto hidden text-xs text-[var(--fg-2)] sm:block">
+            EST. {profile.activeSince} · {profile.handle}
           </span>
         </div>
 
-        <h1 className="heading-xl mt-4 max-w-4xl animate-fade-up">
-          Hi, I&apos;m <span className="text-gradient animate-gradient-pan">Saleh</span>.
-          <br />
-          I build fast systems <span className="text-[var(--fg-muted)]">at the edge.</span>
-        </h1>
+        {/* headline — asymmetric editorial */}
+        <div className="grid gap-8 pt-10 lg:grid-cols-12 lg:gap-6 lg:pt-16">
+          <div className="lg:col-span-8">
+            <h1 className="display text-[15vw] leading-[0.85] sm:text-8xl lg:text-[8.2rem]">
+              <span className="block">Saleh</span>
+              <span className="block">
+                <span className="stroke-text">Sagha</span>
+                <span className="display-italic accent-text">fiani</span>
+              </span>
+            </h1>
 
-        <div
-          className="mt-6 flex h-8 items-center font-mono text-lg text-[var(--fg-muted)] sm:text-xl animate-fade-up"
-          style={{ animationDelay: "80ms" }}
-        >
-          <span className="mr-2 text-emerald-500">&gt;</span>
-          <span className="text-[var(--fg)]">{typed}</span>
-          <span className="ml-0.5 inline-block h-5 w-[2px] animate-blink bg-[var(--fg)]" />
+            <div className="mt-8 flex items-baseline gap-3 text-2xl sm:text-3xl">
+              <span className="font-display">I build fast things</span>
+              <span className="relative inline-block min-w-[6ch]">
+                <span key={idx} className="accent-text font-display animate-[fadeUp_.5s_ease]">
+                  {rotating[idx]}
+                </span>
+              </span>
+            </div>
+          </div>
+
+          <div className="flex flex-col justify-end gap-6 lg:col-span-4">
+            <p className="max-w-sm text-[var(--fg-2)] sm:text-lg">
+              {profile.age}-year-old self-taught software &amp; network engineer.
+              Shipping open-source since {profile.activeSince} — from Cloudflare Workers
+              and tunneling infrastructure to encrypted messengers.
+            </p>
+            <div className="flex flex-wrap gap-3">
+              <a href="#projects" className="btn btn-accent">
+                See the work
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+                  <path d="M7 17 17 7M8 7h9v9" />
+                </svg>
+              </a>
+              <a href="#contact" className="btn btn-outline">Say hello</a>
+            </div>
+          </div>
         </div>
 
-        <p
-          className="mt-6 max-w-2xl text-base leading-relaxed text-[var(--fg-muted)] sm:text-lg animate-fade-up"
-          style={{ animationDelay: "160ms" }}
-        >
-          {profile.bio}
-        </p>
-
-        <div
-          className="mt-9 flex flex-wrap items-center gap-3 animate-fade-up"
-          style={{ animationDelay: "240ms" }}
-        >
-          <a href="#projects" className="btn-primary">
-            View Projects
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <path d="M5 12h14M13 6l6 6-6 6" />
-            </svg>
-          </a>
-          <a href="#contact" className="btn-ghost">
-            Get in touch
-          </a>
-          <a
-            href={profile.github}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="btn-ghost"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-              <path d="M12 .5C5.7.5.5 5.7.5 12c0 5.1 3.3 9.4 7.9 10.9.6.1.8-.3.8-.6v-2c-3.2.7-3.9-1.5-3.9-1.5-.5-1.3-1.3-1.7-1.3-1.7-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 .1.8 1.7 2.6 1.2.1-.7.4-1.2.7-1.5-2.6-.3-5.3-1.3-5.3-5.7 0-1.3.5-2.3 1.2-3.1-.1-.3-.5-1.5.1-3.1 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0C17.3 4.7 18.3 5 18.3 5c.6 1.6.2 2.8.1 3.1.8.8 1.2 1.8 1.2 3.1 0 4.4-2.7 5.4-5.3 5.7.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6 4.6-1.5 7.9-5.8 7.9-10.9C23.5 5.7 18.3.5 12 .5z" />
-            </svg>
-            {profile.handle}
-          </a>
-        </div>
-
-        <dl
-          className="mt-14 grid max-w-lg grid-cols-3 gap-4 animate-fade-up"
-          style={{ animationDelay: "320ms" }}
-        >
+        {/* stat rail */}
+        <div className="mt-14 grid grid-cols-2 gap-px overflow-hidden rounded-2xl border sm:grid-cols-4" style={{ borderColor: "var(--line)", background: "var(--line)" }}>
           {[
-            { k: "Since", v: String(profile.activeSince) },
-            { k: "Repos", v: "30+" },
-            { k: "Age", v: String(profile.age) },
+            { v: `${new Date().getFullYear() - profile.activeSince}+`, k: "Years shipping" },
+            { v: "30+", k: "Repositories" },
+            { v: "6", k: "Languages" },
+            { v: "∞", k: "Curiosity" },
           ].map((s) => (
-            <div key={s.k}>
-              <dt className="font-mono text-2xl font-bold sm:text-3xl">{s.v}</dt>
-              <dd className="mt-1 text-xs uppercase tracking-widest text-[var(--fg-muted)]">
-                {s.k}
-              </dd>
+            <div key={s.k} className="bg-[var(--bg)] p-5">
+              <div className="count font-display text-4xl font-semibold sm:text-5xl">{s.v}</div>
+              <div className="label mt-2">{s.k}</div>
             </div>
           ))}
-        </dl>
+        </div>
       </div>
+
+      {/* running marquee */}
+      <div className="edge-fade mt-16 border-y py-4" style={{ borderColor: "var(--line)" }}>
+        <div className="marquee">
+          {[...marquee, ...marquee].map((m, i) => (
+            <span key={i} className="mx-5 font-display text-2xl text-[var(--fg-2)] sm:text-3xl">
+              {m}
+              <span className="accent-text mx-5">✦</span>
+            </span>
+          ))}
+        </div>
+      </div>
+
+      <style jsx>{`
+        @keyframes fadeUp {
+          from {
+            opacity: 0;
+            transform: translateY(8px);
+          }
+          to {
+            opacity: 1;
+            transform: none;
+          }
+        }
+      `}</style>
     </section>
   );
 }

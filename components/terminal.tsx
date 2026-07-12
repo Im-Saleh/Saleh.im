@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Reveal } from "./reveal";
-import { profile, projects, skills } from "@/lib/data";
+import { profile, projects, domains } from "@/lib/data";
 
 type Line = { type: "out" | "cmd" | "sys"; text: string };
 
@@ -10,19 +10,20 @@ const USER = "saleh";
 const HOST = "saleh.im";
 const PROMPT = `${USER}@${HOST}:~$`;
 
-const HELP = `Available commands:
+const HELP = `available commands:
   help         show this help
   about        who is Saleh?
-  skills       tech stack
-  projects     list featured work
+  skills       tech stack overview
+  projects     featured work
   experience   career timeline
   socials      contact & links
   whoami       current user
   neofetch     system info
   date         current date/time
   echo <text>  print text
+  open <app>   e.g. open messenger
   clear        clear the screen
-  sudo         nice try 😉`;
+  sudo         nice try`;
 
 function runCommand(raw: string): string[] {
   const input = raw.trim();
@@ -43,18 +44,21 @@ function runCommand(raw: string): string[] {
         "Focus: Cloudflare Workers, edge runtimes, networking & full-stack.",
       ];
     case "skills":
-      return skills.map((g) => `${g.label.padEnd(20)} ${g.items.join(", ")}`);
+      return domains.flatMap((d) => [
+        `${d.title}:`,
+        ...d.skills.map((s) => `   ${s.name.padEnd(26)} ${s.level}%  (${s.years})`),
+      ]);
     case "projects":
       return projects
         .filter((p) => p.featured)
-        .flatMap((p) => [`• ${p.title}`, `    ${p.description}`, `    ↳ ${p.href}`]);
+        .flatMap((p) => [`• ${p.title}`, `    ${p.description.slice(0, 72)}…`, `    ↳ ${p.href}`]);
     case "experience":
     case "exp":
       return [
-        "2022  Started on GitHub — open-source networking tools",
-        "2023  Proxy / tunneling infrastructure (Xray, V2Ray)",
-        "2024  Edge computing on Cloudflare Workers",
-        "2025-26  Cross-platform apps, dashboards & secure messengers",
+        "2022     started on GitHub — open-source networking tools",
+        "2023     proxy / tunneling infrastructure (Xray, V2Ray)",
+        "2024     edge computing on Cloudflare Workers",
+        "2025-26  cross-platform apps, dashboards & encrypted messengers",
       ];
     case "socials":
     case "contact":
@@ -69,44 +73,47 @@ function runCommand(raw: string): string[] {
       return [new Date().toString()];
     case "echo":
       return [args.join(" ")];
+    case "open":
+      if (/messeng|chat|cipher/i.test(args[0] || "")) {
+        if (typeof window !== "undefined") window.open("/apps/messenger/", "_blank");
+        return ["opening Cipher messenger in a new tab…"];
+      }
+      return [`open: unknown app '${args[0] || ""}'. try: open messenger`];
     case "neofetch":
       return [
         `${USER}@${HOST}`,
         "-----------------",
-        "OS:       SalehOS (Linux x86_64)",
-        "Shell:    zsh 5.9",
-        "Editor:   nvim / VS Code",
-        "Uptime:   since 2022",
-        `Langs:    TypeScript, Kotlin, Python, Go`,
-        `Cloud:    Cloudflare Workers`,
-        "CPU:      caffeine-powered",
+        "os        SalehOS (Linux x86_64)",
+        "shell     zsh 5.9",
+        "editor    nvim / VS Code",
+        "uptime    since 2022",
+        "langs     TypeScript · Kotlin · Python · Go",
+        "cloud     Cloudflare Workers",
+        "cpu       caffeine-powered",
       ];
     case "sudo":
-      return ["[sudo] password for saleh: ", "Nice try 😉 — you don't have permission for that."];
+      return ["[sudo] password for saleh:", "nice try — you don't have permission for that."];
     case "ls":
-      return ["about  skills  projects  experience  socials  secret-chat/  messenger/"];
+      return ["about  skills  projects  experience  socials  apps/messenger"];
     case "cat":
       return args.length
-        ? [`cat: ${args[0]}: Permission denied (it's a secret 🤫)`]
+        ? [`cat: ${args[0]}: permission denied (it's a secret)`]
         : ["usage: cat <file>"];
     case "exit":
       return ["Connection to saleh.im closed."];
     default:
-      return [`command not found: ${cmd}. Type 'help' for options.`];
+      return [`command not found: ${cmd}. type 'help' for options.`];
   }
 }
 
 const INTRO: { cmd: string; out: string[] }[] = [
-  {
-    cmd: "whoami",
-    out: ["saleh"],
-  },
+  { cmd: "whoami", out: ["saleh"] },
   {
     cmd: "cat welcome.txt",
     out: [
-      `Welcome — I'm ${profile.name}.`,
+      `welcome — I'm ${profile.name}.`,
       `${profile.role}, building at the edge since 2022.`,
-      "Type 'help' to explore. Try: about, projects, neofetch.",
+      "type 'help' to explore. try: about, projects, neofetch.",
     ],
   },
 ];
@@ -123,16 +130,11 @@ export function Terminal() {
   const inputRef = useRef<HTMLInputElement>(null);
   const sectionRef = useRef<HTMLDivElement>(null);
 
-  const scrollToBottom = useCallback(() => {
+  useEffect(() => {
     const el = scrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, []);
+  }, [lines]);
 
-  useEffect(() => {
-    scrollToBottom();
-  }, [lines, scrollToBottom]);
-
-  // Auto-typing boot sequence — starts once terminal scrolls into view.
   useEffect(() => {
     const el = sectionRef.current;
     if (!el) return;
@@ -158,7 +160,7 @@ export function Terminal() {
       for (let i = 1; i <= text.length; i++) {
         if (cancelled) return;
         await new Promise<void>((resolve) => {
-          const t = setTimeout(() => resolve(), 26 + Math.random() * 40);
+          const t = setTimeout(resolve, 24 + Math.random() * 38);
           timers.push(t);
         });
         onChar(text.slice(0, i));
@@ -166,17 +168,9 @@ export function Terminal() {
     };
 
     const run = async () => {
-      await new Promise<void>((r) => {
-        const t = setTimeout(r, 400);
-        timers.push(t);
-      });
+      await new Promise<void>((r) => timers.push(setTimeout(r, 400)));
       for (const step of INTRO) {
-        // typewriter the command
-        let idx = -1;
-        setLines((prev) => {
-          idx = prev.length;
-          return [...prev, { type: "cmd", text: "" }];
-        });
+        setLines((prev) => [...prev, { type: "cmd", text: "" }]);
         await type(step.cmd, (partial) => {
           setLines((prev) => {
             const copy = [...prev];
@@ -184,25 +178,12 @@ export function Terminal() {
             return copy;
           });
         });
-        await new Promise<void>((r) => {
-          const t = setTimeout(r, 220);
-          timers.push(t);
-        });
-        // print output
-        setLines((prev) => [
-          ...prev,
-          ...step.out.map((o) => ({ type: "out" as const, text: o })),
-        ]);
-        await new Promise<void>((r) => {
-          const t = setTimeout(r, 380);
-          timers.push(t);
-        });
+        await new Promise<void>((r) => timers.push(setTimeout(r, 220)));
+        setLines((prev) => [...prev, ...step.out.map((o) => ({ type: "out" as const, text: o }))]);
+        await new Promise<void>((r) => timers.push(setTimeout(r, 360)));
       }
       if (!cancelled) {
-        setLines((prev) => [
-          ...prev,
-          { type: "sys", text: "— shell ready. type a command —" },
-        ]);
+        setLines((prev) => [...prev, { type: "sys", text: "— shell ready. type a command —" }]);
         setInteractive(true);
       }
     };
@@ -214,24 +195,18 @@ export function Terminal() {
     };
   }, [booted]);
 
-  const submit = useCallback(
-    (raw: string) => {
-      const cmd = raw.trim();
-      setLines((prev) => [...prev, { type: "cmd", text: raw }]);
-      if (cmd) setHistory((h) => [...h, cmd]);
-      setHistIdx(-1);
-
-      if (cmd.toLowerCase() === "clear") {
-        setLines([]);
-        return;
-      }
-      const out = runCommand(raw);
-      if (out.length) {
-        setLines((prev) => [...prev, ...out.map((o) => ({ type: "out" as const, text: o }))]);
-      }
-    },
-    []
-  );
+  const submit = useCallback((raw: string) => {
+    const cmd = raw.trim();
+    setLines((prev) => [...prev, { type: "cmd", text: raw }]);
+    if (cmd) setHistory((h) => [...h, cmd]);
+    setHistIdx(-1);
+    if (cmd.toLowerCase() === "clear") {
+      setLines([]);
+      return;
+    }
+    const out = runCommand(raw);
+    if (out.length) setLines((prev) => [...prev, ...out.map((o) => ({ type: "out" as const, text: o }))]);
+  }, []);
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
@@ -258,99 +233,111 @@ export function Terminal() {
   };
 
   return (
-    <section id="terminal" ref={sectionRef} className="scroll-mt-20 py-20 sm:py-28">
-      <div className="container-page">
-        <Reveal>
-          <span className="section-label">06 — Terminal</span>
-          <h2 className="heading-lg max-w-3xl">
-            Prefer a shell?{" "}
-            <span className="text-[var(--fg-muted)]">Talk to my machine.</span>
-          </h2>
-          <p className="mt-4 max-w-2xl text-[var(--fg-muted)]">
-            A real, interactive terminal. It boots on its own — then it&apos;s yours.
-            Type <code className="rounded bg-[var(--bg-soft)] px-1.5 py-0.5 font-mono text-sm">help</code> to begin.
-          </p>
-        </Reveal>
-
-        <Reveal delay={80}>
-          <div
-            className="mt-8 overflow-hidden rounded-xl border shadow-2xl"
-            style={{ borderColor: "rgba(74,222,128,0.25)", background: "#0b0f0b" }}
-            onClick={() => inputRef.current?.focus()}
-          >
-            {/* Title bar */}
-            <div className="flex items-center justify-between border-b border-[rgba(74,222,128,0.15)] px-4 py-2.5">
-              <div className="flex items-center gap-1.5">
-                <span className="h-3 w-3 rounded-full bg-red-500/90" />
-                <span className="h-3 w-3 rounded-full bg-yellow-500/90" />
-                <span className="h-3 w-3 rounded-full bg-green-500/90" />
+    <section id="terminal" ref={sectionRef} className="relative scroll-mt-24 py-24 sm:py-32">
+      <div className="wrap">
+        <div className="grid gap-10 lg:grid-cols-12 lg:gap-8">
+          <div className="lg:col-span-4">
+            <Reveal>
+              <p className="label">05 / Shell</p>
+              <h2 className="display mt-3 text-5xl sm:text-6xl">
+                Prefer a<br />
+                <span className="display-italic accent-text">terminal?</span>
+              </h2>
+              <p className="mt-6 max-w-sm text-[var(--fg-2)]">
+                A real, interactive shell. It boots on its own — then it&apos;s yours.
+                Type <code className="mono rounded px-1.5 py-0.5" style={{ background: "var(--bg-3)" }}>help</code> to
+                begin, or <code className="mono rounded px-1.5 py-0.5" style={{ background: "var(--bg-3)" }}>open messenger</code>.
+              </p>
+              <div className="mt-6 flex flex-wrap gap-2">
+                {["help", "about", "projects", "neofetch"].map((c) => (
+                  <button
+                    key={c}
+                    onClick={() => {
+                      if (interactive) submit(c);
+                      inputRef.current?.focus();
+                    }}
+                    className="chip transition-colors hover:text-[var(--fg)]"
+                  >
+                    {c}
+                  </button>
+                ))}
               </div>
-              <span className="font-mono text-xs text-emerald-400/70">
-                {USER}@{HOST}: ~ — bash
-              </span>
-              <span className="w-12" />
-            </div>
-
-            {/* Screen */}
-            <div
-              ref={scrollRef}
-              className="h-[360px] overflow-y-auto px-4 py-3 font-mono text-[13px] leading-relaxed sm:text-sm"
-              style={{ color: "#4ade80", scrollbarWidth: "thin" }}
-            >
-              {lines.map((line, i) => {
-                if (line.type === "cmd") {
-                  return (
-                    <div key={i} className="flex gap-2 whitespace-pre-wrap break-words">
-                      <span className="shrink-0 text-emerald-500/80">{PROMPT}</span>
-                      <span className="text-emerald-300">{line.text}</span>
-                    </div>
-                  );
-                }
-                if (line.type === "sys") {
-                  return (
-                    <div key={i} className="my-1 whitespace-pre-wrap break-words text-emerald-500/50">
-                      {line.text}
-                    </div>
-                  );
-                }
-                return (
-                  <div key={i} className="whitespace-pre-wrap break-words text-emerald-400/90">
-                    {line.text}
-                  </div>
-                );
-              })}
-
-              {/* Live input line */}
-              {interactive && (
-                <div className="flex gap-2">
-                  <span className="shrink-0 text-emerald-500/80">{PROMPT}</span>
-                  <span className="relative flex-1">
-                    <span className="whitespace-pre-wrap break-words text-emerald-300">
-                      {value}
-                    </span>
-                    <span className="ml-0.5 inline-block h-4 w-2 translate-y-0.5 animate-blink bg-emerald-400 align-middle" />
-                    <input
-                      ref={inputRef}
-                      value={value}
-                      onChange={(e) => setValue(e.target.value)}
-                      onKeyDown={onKeyDown}
-                      spellCheck={false}
-                      autoCapitalize="off"
-                      autoComplete="off"
-                      autoCorrect="off"
-                      aria-label="Terminal input"
-                      className="absolute inset-0 h-full w-full cursor-default bg-transparent text-transparent caret-transparent outline-none"
-                    />
-                  </span>
-                </div>
-              )}
-
-              {!interactive && !booted && (
-                <div className="text-emerald-500/50">initializing shell…</div>
-              )}
-            </div>
+            </Reveal>
           </div>
-        </Reveal>
+
+          <div className="lg:col-span-8">
+            <Reveal delay={80}>
+              <div
+                className="overflow-hidden rounded-2xl"
+                style={{ background: "#07090a", border: "1px solid var(--line-2)", boxShadow: "0 30px 80px -30px var(--shadow)" }}
+                onClick={() => inputRef.current?.focus()}
+              >
+                <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+                  <div className="flex items-center gap-1.5">
+                    <span className="h-3 w-3 rounded-full" style={{ background: "#ff5f56" }} />
+                    <span className="h-3 w-3 rounded-full" style={{ background: "#ffbd2e" }} />
+                    <span className="h-3 w-3 rounded-full" style={{ background: "#27c93f" }} />
+                  </div>
+                  <span className="mono text-xs" style={{ color: "var(--accent)" }}>
+                    {USER}@{HOST}: ~ — zsh
+                  </span>
+                  <span className="w-12" />
+                </div>
+
+                <div
+                  ref={scrollRef}
+                  className="mono h-[380px] overflow-y-auto px-4 py-4 text-[13px] leading-relaxed sm:text-sm"
+                  style={{ color: "var(--accent)" }}
+                >
+                  {lines.map((line, i) => {
+                    if (line.type === "cmd")
+                      return (
+                        <div key={i} className="flex gap-2 whitespace-pre-wrap break-words">
+                          <span className="shrink-0" style={{ opacity: 0.7 }}>{PROMPT}</span>
+                          <span style={{ color: "#e8ffe0" }}>{line.text}</span>
+                        </div>
+                      );
+                    if (line.type === "sys")
+                      return (
+                        <div key={i} className="my-1 whitespace-pre-wrap break-words" style={{ opacity: 0.45 }}>
+                          {line.text}
+                        </div>
+                      );
+                    return (
+                      <div key={i} className="whitespace-pre-wrap break-words" style={{ opacity: 0.9 }}>
+                        {line.text}
+                      </div>
+                    );
+                  })}
+
+                  {interactive && (
+                    <div className="flex gap-2">
+                      <span className="shrink-0" style={{ opacity: 0.7 }}>{PROMPT}</span>
+                      <span className="relative flex-1">
+                        <span className="whitespace-pre-wrap break-words" style={{ color: "#e8ffe0" }}>{value}</span>
+                        <span className="caret ml-0.5 inline-block h-4 w-2 translate-y-0.5 align-middle" style={{ background: "var(--accent)" }} />
+                        <input
+                          ref={inputRef}
+                          value={value}
+                          onChange={(e) => setValue(e.target.value)}
+                          onKeyDown={onKeyDown}
+                          spellCheck={false}
+                          autoCapitalize="off"
+                          autoComplete="off"
+                          autoCorrect="off"
+                          aria-label="Terminal input"
+                          className="absolute inset-0 h-full w-full cursor-default bg-transparent text-transparent caret-transparent outline-none"
+                        />
+                      </span>
+                    </div>
+                  )}
+
+                  {!interactive && !booted && <div style={{ opacity: 0.45 }}>initializing shell…</div>}
+                </div>
+              </div>
+            </Reveal>
+          </div>
+        </div>
       </div>
     </section>
   );

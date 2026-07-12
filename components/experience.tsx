@@ -3,34 +3,53 @@ import { timeline } from "@/lib/data";
 
 export function Experience() {
   return (
-    <section id="work" className="scroll-mt-20 py-20 sm:py-28">
-      <div className="container-page">
+    <section id="work" className="relative scroll-mt-24 py-24 sm:py-32">
+      <div className="absolute inset-0 blueprint opacity-60" aria-hidden />
+      <div className="wrap relative">
         <Reveal>
-          <span className="section-label">03 — Journey</span>
-          <h2 className="heading-lg">
-            The road so far{" "}
-            <span className="text-[var(--fg-muted)]">— since 2022</span>
-          </h2>
+          <div className="flex items-end justify-between">
+            <div>
+              <p className="label">03 / Journey</p>
+              <h2 className="display mt-3 text-5xl sm:text-6xl">The road so far</h2>
+            </div>
+            <span className="mono hidden text-sm text-[var(--fg-2)] sm:block">
+              2022 → now
+            </span>
+          </div>
         </Reveal>
 
-        <ol className="mt-12 relative border-l pl-6 sm:pl-8" style={{ borderColor: "var(--border)" }}>
+        <div className="mt-16 space-y-0">
           {timeline.map((item, i) => (
-            <li key={item.period} className="mb-10 last:mb-0">
-              <Reveal delay={i * 60}>
-                <span
-                  className="absolute -left-[7px] mt-1.5 flex h-3.5 w-3.5 items-center justify-center rounded-full border-2 bg-[var(--bg)]"
-                  style={{ borderColor: "var(--fg)" }}
-                  aria-hidden
-                />
-                <div className="flex flex-col gap-1">
-                  <span className="font-mono text-sm text-emerald-500">{item.period}</span>
-                  <h3 className="text-lg font-semibold">{item.title}</h3>
-                  <p className="max-w-2xl text-[var(--fg-muted)]">{item.description}</p>
+            <Reveal key={item.period} delay={i * 70}>
+              <div
+                className="group grid gap-4 py-8 sm:grid-cols-12 sm:gap-8"
+                style={{ borderTop: "1px solid var(--line)" }}
+              >
+                <div className="sm:col-span-3">
+                  <span
+                    className="display block text-5xl leading-none transition-colors sm:text-6xl"
+                    style={{ color: "var(--fg-2)" }}
+                  >
+                    {item.period}
+                  </span>
                 </div>
-              </Reveal>
-            </li>
+                <div className="sm:col-span-9 sm:pl-8" style={{ borderLeft: "1px solid var(--line)" }}>
+                  <div className="flex items-center gap-3">
+                    <span
+                      className="h-2.5 w-2.5 rounded-full"
+                      style={{ background: "var(--accent)", boxShadow: "0 0 12px var(--glow)" }}
+                    />
+                    <h3 className="font-display text-2xl">{item.title}</h3>
+                  </div>
+                  <p className="mt-3 max-w-2xl leading-relaxed text-[var(--fg-2)]">
+                    {item.description}
+                  </p>
+                </div>
+              </div>
+            </Reveal>
           ))}
-        </ol>
+          <div style={{ borderTop: "1px solid var(--line)" }} />
+        </div>
       </div>
     </section>
   );

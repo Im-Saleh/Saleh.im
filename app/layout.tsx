@@ -1,12 +1,20 @@
 import type { Metadata, Viewport } from "next";
-import { JetBrains_Mono, Inter } from "next/font/google";
+import { Fraunces, Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
+import { NO_FLASH_SCRIPT } from "@/lib/themes";
 
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-sans",
   display: "swap",
+});
+
+const display = Fraunces({
+  subsets: ["latin"],
+  variable: "--font-display",
+  display: "swap",
+  axes: ["SOFT", "WONK", "opsz"],
 });
 
 const mono = JetBrains_Mono({
@@ -29,7 +37,6 @@ export const metadata: Metadata = {
     "network engineer",
     "Cloudflare Workers",
     "portfolio",
-    "developer",
     "W2F-Sa",
   ],
   authors: [{ name: "Saleh Saghafiani", url: "https://github.com/W2F-Sa" }],
@@ -42,22 +49,10 @@ export const metadata: Metadata = {
     siteName: "saleh.im",
     type: "website",
   },
-  twitter: {
-    card: "summary_large_image",
-    title: "Saleh Saghafiani — Software & Network Engineer",
-    description:
-      "Self-taught software and network engineer building fast, resilient systems at the edge since 2022.",
-  },
-  icons: {
-    icon: "/favicon.svg",
-  },
+  icons: { icon: "/favicon.svg" },
 };
 
 export const viewport: Viewport = {
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
-    { media: "(prefers-color-scheme: dark)", color: "#060606" },
-  ],
   width: "device-width",
   initialScale: 1,
 };
@@ -68,8 +63,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" suppressHydrationWarning className={`${inter.variable} ${mono.variable}`}>
-      <body className="noise antialiased">
+    <html
+      lang="en"
+      suppressHydrationWarning
+      className={`${inter.variable} ${display.variable} ${mono.variable}`}
+    >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: NO_FLASH_SCRIPT }} />
+      </head>
+      <body className="grain antialiased">
         <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>

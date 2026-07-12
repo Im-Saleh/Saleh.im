@@ -2,75 +2,54 @@ import { Reveal } from "./reveal";
 import { profile } from "@/lib/data";
 
 const channels = [
-  {
-    label: "Email",
-    value: profile.email,
-    href: `mailto:${profile.email}`,
-    icon: (
-      <path d="M4 4h16v16H4zM4 6l8 6 8-6" />
-    ),
-  },
-  {
-    label: "Telegram",
-    value: `@${profile.telegram}`,
-    href: profile.telegramUrl,
-    icon: <path d="m22 3-9 9M22 3l-6.5 18-4-8-8-4L22 3z" />,
-  },
-  {
-    label: "GitHub",
-    value: profile.handle,
-    href: profile.github,
-    icon: <path d="M9 19c-4 1.5-4-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6 0 0 0-1.3-3.2 4.2 4.2 0 0 0-.1-3.2s-1.1-.3-3.5 1.3a12 12 0 0 0-6.2 0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2 0 0 0-.1 3.2A4.6 4.6 0 0 0 4 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21" />,
-  },
+  { label: "Email", value: profile.email, href: `mailto:${profile.email}`, cta: "Write" },
+  { label: "Telegram", value: `@${profile.telegram}`, href: profile.telegramUrl, cta: "Message" },
+  { label: "GitHub", value: profile.handle, href: profile.github, cta: "Follow" },
 ];
 
 export function Contact() {
   return (
-    <section id="contact" className="scroll-mt-20 py-20 sm:py-28">
-      <div className="container-page">
+    <section id="contact" className="relative scroll-mt-24 py-24 sm:py-32">
+      <div className="wrap">
         <Reveal>
-          <div className="card relative overflow-hidden p-8 sm:p-12">
-            <div className="pointer-events-none absolute inset-0 grid-backdrop opacity-60" aria-hidden />
+          <div className="relative overflow-hidden rounded-3xl p-8 sm:p-14" style={{ background: "var(--bg-2)", border: "1px solid var(--line)" }}>
+            <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full aurora" style={{ background: "var(--accent)", opacity: 0.3 }} aria-hidden />
             <div className="relative">
-              <span className="section-label">07 — Contact</span>
-              <h2 className="heading-lg max-w-2xl">
-                Let&apos;s build something{" "}
-                <span className="text-[var(--fg-muted)]">fast and beautiful.</span>
+              <p className="label">06 / Contact</p>
+              <h2 className="display mt-4 max-w-3xl text-5xl leading-[0.95] sm:text-7xl">
+                Let&apos;s build something
+                <br />
+                <span className="display-italic accent-text">fast and beautiful.</span>
               </h2>
-              <p className="mt-4 max-w-xl text-[var(--fg-muted)]">
-                Open to freelance projects and collaboration. The quickest way to reach me
-                is Telegram or email — I usually reply within a day.
+              <p className="mt-6 max-w-xl text-lg text-[var(--fg-2)]">
+                Open to freelance and collaboration. Telegram or email is the quickest way to
+                reach me — I usually reply within a day.
               </p>
 
-              <div className="mt-8 grid gap-3 sm:grid-cols-3">
+              <div className="mt-10 grid gap-px overflow-hidden rounded-2xl sm:grid-cols-3" style={{ background: "var(--line)" }}>
                 {channels.map((c) => (
                   <a
                     key={c.label}
                     href={c.href}
                     target={c.label !== "Email" ? "_blank" : undefined}
                     rel="noopener noreferrer"
-                    className="group flex items-center gap-3 rounded-xl border p-4 transition-all duration-200 hover:-translate-y-0.5 hover:bg-[var(--bg-soft)]"
-                    style={{ borderColor: "var(--border)" }}
+                    className="group flex flex-col gap-2 p-6 transition-colors"
+                    style={{ background: "var(--bg-2)" }}
                   >
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border" style={{ borderColor: "var(--border)" }}>
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                        {c.icon}
-                      </svg>
-                    </span>
-                    <span className="min-w-0">
-                      <span className="block text-xs uppercase tracking-widest text-[var(--fg-muted)]">
-                        {c.label}
-                      </span>
-                      <span className="block truncate text-sm font-medium">{c.value}</span>
+                    <span className="label">{c.label}</span>
+                    <span className="font-display text-xl">{c.value}</span>
+                    <span className="mono mt-2 flex items-center gap-1.5 text-sm text-[var(--fg-2)] transition-colors group-hover:text-[var(--accent)]">
+                      {c.cta}
+                      <span className="transition-transform group-hover:translate-x-1">→</span>
                     </span>
                   </a>
                 ))}
               </div>
 
-              <div className="mt-8">
-                <a href={`mailto:${profile.email}`} className="btn-primary">
-                  Say hello
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <div className="mt-10">
+                <a href={`mailto:${profile.email}`} className="btn btn-accent text-base">
+                  Start a conversation
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
                     <path d="M5 12h14M13 6l6 6-6 6" />
                   </svg>
                 </a>

@@ -3,9 +3,8 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
 /**
- * Lightweight scroll-reveal using a single IntersectionObserver.
- * Animates transform/opacity only (compositor-only) so scrolling stays
- * buttery smooth on mobile — no scroll listeners, no layout thrash.
+ * Scroll-reveal driven by a single IntersectionObserver.
+ * Animates transform/opacity only (compositor-only) so scrolling stays smooth.
  */
 export function Reveal({
   children,
@@ -42,7 +41,7 @@ export function Reveal({
           }
         }
       },
-      { threshold: 0.12, rootMargin: "0px 0px -8% 0px" }
+      { threshold: 0.1, rootMargin: "0px 0px -6% 0px" }
     );
     io.observe(el);
     return () => io.disconnect();
@@ -52,7 +51,7 @@ export function Reveal({
   return (
     <Component
       ref={ref as any}
-      className={`reveal ${visible ? "is-visible" : ""} ${className}`}
+      className={`reveal ${visible ? "in" : ""} ${className}`}
       style={{ transitionDelay: `${delay}ms` }}
     >
       {children}
