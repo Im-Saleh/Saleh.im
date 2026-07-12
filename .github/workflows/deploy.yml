@@ -37,6 +37,9 @@ jobs:
       - name: Configure GitHub Pages
         id: pages
         uses: actions/configure-pages@v5
+        with:
+          # Auto-enable Pages (source = GitHub Actions) if it isn't already.
+          enablement: true
 
       - name: Build static site
         run: npm run build
