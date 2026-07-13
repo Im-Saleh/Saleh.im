@@ -251,17 +251,32 @@ body {
    UNIQUE EFFECTS  (compositor-only — safe for scroll)
    ========================================================================= */
 
-/* Reveal on scroll */
+/* Reveal on scroll — compositor-only (transform/opacity), buttery easing */
 .reveal {
   opacity: 0;
-  transform: translate3d(0, 26px, 0);
-  transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1),
-    transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+  transform: translate3d(0, 34px, 0) scale(0.98);
+  transition: opacity 0.9s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 1s cubic-bezier(0.22, 1, 0.36, 1);
   will-change: opacity, transform;
 }
 .reveal.in {
   opacity: 1;
-  transform: none;
+  transform: translate3d(0, 0, 0) scale(1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .reveal {
+    transition: none;
+  }
+}
+
+/* Smooth, weighted native scrolling */
+html {
+  scroll-behavior: smooth;
+}
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
 }
 
 /* Accent-outlined "stroked" display text */

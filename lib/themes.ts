@@ -32,7 +32,7 @@ export const THEMES: Theme[] = [
   },
 ];
 
-export const DEFAULT_THEME = "carbon";
+export const DEFAULT_THEME = "paper";
 export const STORAGE_KEY = "saleh-theme";
 
 /** Inline script (runs before paint) — no flash of wrong theme. */
