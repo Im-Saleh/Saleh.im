@@ -63,7 +63,7 @@ export function About() {
 
             <Reveal delay={220}>
               <div className="mt-10 flex flex-wrap items-center gap-6 border-t pt-8" style={{ borderColor: "var(--line)" }}>
-                <span className="font-display text-xl italic text-[var(--fg-2)]">— {t.about.since}</span>
+                <span className="fa-quote font-display text-xl italic text-[var(--fg-2)]">— {t.about.since}</span>
                 <a href={profile.github} target="_blank" rel="noopener noreferrer" className="link-sweep mono text-sm force-ltr">
                   {profile.handle} ↗
                 </a>

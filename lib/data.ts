@@ -11,7 +11,7 @@ export const profile = {
   name: { en: "Saleh Saghafiani", fa: "محمدصالح ثقفیانی" } as L10n,
   nickname: { en: "Saleh", fa: "صالح" } as L10n,
   handle: "@W2F-Sa",
-  role: { en: "Software Engineer & Product Builder", fa: "مهندس نرم‌افزار و سازنده‌ی محصول" } as L10n,
+  role: { en: "Software Engineer & Product Builder", fa: "مهندس نرم‌افزار و سابلادرنگ‌ی محصول" } as L10n,
   activeSince: 2022,
   location: { en: "Iran", fa: "ایران" } as L10n,
   email: "salehcodez@gmail.com",
@@ -96,7 +96,7 @@ export const domains: SkillDomain[] = [
   },
   {
     key: "realtime",
-    title: { en: "Real-time & Backend", fa: "زنده و بک‌اند" },
+    title: { en: "Real-time & Backend", fa: "بلادرنگ و بک‌اند" },
     tagline: {
       en: "Systems that move data fast, reliably, and at scale.",
       fa: "سیستم‌هایی که داده را سریع، قابل‌اعتماد و در مقیاس جابه‌جا می‌کنند.",
@@ -123,11 +123,11 @@ export const domains: SkillDomain[] = [
         tags: ["DataChannels", "STUN/ICE", "Realtime", "P2P"],
         summary: {
           en: "Live, peer-to-peer and collaborative experiences.",
-          fa: "تجربه‌های زنده، همتا‌به‌همتا و مشارکتی.",
+          fa: "تجربه‌های بلادرنگ، همتا‌به‌همتا و مشارکتی.",
         },
         detail: {
           en: "Direct browser-to-browser communication over WebRTC DataChannels — ICE/STUN negotiation, reliable ordered channels and rendezvous schemes — plus WebSocket back-ends for live, collaborative UIs.",
-          fa: "ارتباط مستقیم مرورگر‌به‌مرورگر روی DataChannelهای WebRTC — مذاکره‌ی ICE/STUN، کانال‌های مرتب و قابل‌اعتماد و طرح‌های ملاقات — به‌همراه بک‌اند WebSocket برای رابط‌های زنده و مشارکتی.",
+          fa: "ارتباط مستقیم مرورگر‌به‌مرورگر روی DataChannelهای WebRTC — مذاکره‌ی ICE/STUN، کانال‌های مرتب و قابل‌اعتماد و طرح‌های ملاقات — به‌همراه بک‌اند WebSocket برای رابط‌های بلادرنگ و مشارکتی.",
         },
       },
       {
@@ -241,7 +241,7 @@ export const projects: Project[] = [
     title: { en: "Aperture — Collaborative Canvas", fa: "آپرچر — بوم مشارکتی" },
     description: {
       en: "A real-time collaborative whiteboard where cursors, shapes and notes sync instantly across everyone in the room — built on WebRTC and a CRDT so edits never conflict, even offline.",
-      fa: "یک وایت‌بورد مشارکتیِ زنده که در آن مکان‌نماها، اشکال و یادداشت‌ها بلافاصله بین همه‌ی افراد اتاق هم‌گام می‌شوند — ساخته‌شده روی WebRTC و یک CRDT تا ویرایش‌ها هیچ‌گاه تداخل نکنند، حتی آفلاین.",
+      fa: "یک وایت‌بورد مشارکتیِ بلادرنگ که در آن مکان‌نماها، اشکال و یادداشت‌ها بلافاصله بین همه‌ی افراد اتاق هم‌گام می‌شوند — ساخته‌شده روی WebRTC و یک CRDT تا ویرایش‌ها هیچ‌گاه تداخل نکنند، حتی آفلاین.",
     },
     tags: ["WebRTC", "CRDT", "Canvas", "Realtime"],
     href: "https://github.com/W2F-Sa",
@@ -265,7 +265,7 @@ export const projects: Project[] = [
     title: { en: "Relay — Event Router", fa: "ری‌لِی — مسیریاب رویداد" },
     description: {
       en: "A self-hostable webhook and automation router: receive events, transform and fan them out to any destination with retries, signing and a clean visual pipeline builder.",
-      fa: "یک مسیریاب وب‌هوک و اتوماسیونِ قابل‌میزبانی: دریافت رویدادها، تبدیل و پخش آن‌ها به هر مقصد، با تلاش مجدد، امضا و یک سازنده‌ی خط لوله‌ی بصریِ تمیز.",
+      fa: "یک مسیریاب وب‌هوک و اتوماسیونِ قابل‌میزبانی: دریافت رویدادها، تبدیل و پخش آن‌ها به هر مقصد، با تلاش مجدد، امضا و یک سابلادرنگ‌ی خط لوله‌ی بصریِ تمیز.",
     },
     tags: ["Node.js", "Webhooks", "Queues", "TypeScript"],
     href: "https://github.com/W2F-Sa",
@@ -273,10 +273,10 @@ export const projects: Project[] = [
   },
   {
     name: "Lumen",
-    title: { en: "Lumen — Live Analytics", fa: "لومن — تحلیل زنده" },
+    title: { en: "Lumen — Live Analytics", fa: "لومن — تحلیل بلادرنگ" },
     description: {
       en: "A privacy-first analytics dashboard with streaming charts that update in real time over WebSockets — lightweight, cookie-free, and fast even with millions of events.",
-      fa: "یک داشبورد تحلیلِ حریم‌خصوصی‌محور با نمودارهای جاری که به‌صورت زنده روی WebSocket به‌روز می‌شوند — سبک، بدون کوکی، و سریع حتی با میلیون‌ها رویداد.",
+      fa: "یک داشبورد تحلیلِ حریم‌خصوصی‌محور با نمودارهای جاری که به‌صورت بلادرنگ روی WebSocket به‌روز می‌شوند — سبک، بدون کوکی، و سریع حتی با میلیون‌ها رویداد.",
     },
     tags: ["Charts", "WebSockets", "Analytics", "Privacy"],
     href: "https://github.com/W2F-Sa",
@@ -324,10 +324,10 @@ export const timeline: TimelineItem[] = [
   },
   {
     period: "2024",
-    title: { en: "Real-time & systems", fa: "زنده و سیستم‌ها" },
+    title: { en: "Real-time & systems", fa: "بلادرنگ و سیستم‌ها" },
     description: {
       en: "Focused on real-time experiences — WebRTC, streaming data and WebSockets — and on performance work that keeps larger apps fast.",
-      fa: "روی تجربه‌های زنده تمرکز کردم — WebRTC، داده‌ی جاری و WebSocket — و روی کارِ کارایی که اپ‌های بزرگ‌تر را سریع نگه می‌دارد.",
+      fa: "روی تجربه‌های بلادرنگ تمرکز کردم — WebRTC، داده‌ی جاری و WebSocket — و روی کارِ کارایی که اپ‌های بزرگ‌تر را سریع نگه می‌دارد.",
     },
   },
   {

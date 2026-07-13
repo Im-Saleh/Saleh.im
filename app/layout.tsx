@@ -1,13 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import {
-  Fraunces,
-  Inter,
-  JetBrains_Mono,
-  Vazirmatn,
-  Markazi_Text,
-  Lalezar,
-  Gulzar,
-} from "next/font/google";
+import { Fraunces, Inter, JetBrains_Mono, Vazirmatn } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { LangProvider } from "@/components/lang-provider";
@@ -24,32 +16,13 @@ const display = Fraunces({
 });
 const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono", display: "swap" });
 
-/* ---- Persian type system (4 distinct faces) ---- */
+/* ---- Persian UI face (numbers, labels). The soft display/body/quote faces
+       (Gandom, Shabnam, Samim) load from a CDN below and only download when
+       Farsi is active. ---- */
 const vazir = Vazirmatn({
   subsets: ["arabic"],
   weight: ["400", "500", "600", "700"],
-  variable: "--font-fa-sans",
-  display: "swap",
-  preload: false,
-});
-const markazi = Markazi_Text({
-  subsets: ["arabic"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-fa-display",
-  display: "swap",
-  preload: false,
-});
-const lalezar = Lalezar({
-  subsets: ["arabic"],
-  weight: ["400"],
-  variable: "--font-fa-accent",
-  display: "swap",
-  preload: false,
-});
-const gulzar = Gulzar({
-  subsets: ["arabic"],
-  weight: ["400"],
-  variable: "--font-fa-nastaliq",
+  variable: "--font-fa-ui",
   display: "swap",
   preload: false,
 });
@@ -66,8 +39,7 @@ export const metadata: Metadata = {
   creator: "Saleh Saghafiani",
   openGraph: {
     title: "Saleh Saghafiani — Software Engineer",
-    description:
-      "Software engineer crafting fast, elegant products for the web. Shipping since 2022.",
+    description: "Software engineer crafting fast, elegant products for the web. Shipping since 2022.",
     url: siteUrl,
     siteName: "saleh.im",
     type: "website",
@@ -77,22 +49,24 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = { width: "device-width", initialScale: 1 };
 
+const FA_FONTS = [
+  "https://cdn.jsdelivr.net/gh/rastikerdar/shabnam-font@v5.0.1/dist/font-face.css",
+  "https://cdn.jsdelivr.net/gh/rastikerdar/samim-font@v4.0.5/dist/font-face.css",
+  "https://cdn.jsdelivr.net/gh/rastikerdar/gandom-font@0.8/dist/font-face.css",
+];
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  const fontVars = [
-    inter.variable,
-    display.variable,
-    mono.variable,
-    vazir.variable,
-    markazi.variable,
-    lalezar.variable,
-    gulzar.variable,
-  ].join(" ");
+  const fontVars = [inter.variable, display.variable, mono.variable, vazir.variable].join(" ");
 
   return (
     <html lang="en" dir="ltr" suppressHydrationWarning className={fontVars}>
       <head>
         <script dangerouslySetInnerHTML={{ __html: NO_FLASH_SCRIPT }} />
         <script dangerouslySetInnerHTML={{ __html: NO_FLASH_LANG }} />
+        <link rel="preconnect" href="https://cdn.jsdelivr.net" crossOrigin="" />
+        {FA_FONTS.map((href) => (
+          <link key={href} rel="stylesheet" href={href} />
+        ))}
       </head>
       <body className="grain antialiased">
         <LangProvider>

@@ -54,7 +54,7 @@ export function Skills() {
         </Reveal>
 
         <Reveal delay={120}>
-          <p className="mt-6 max-w-xl font-display text-xl italic text-[var(--fg-2)]">
+          <p className="fa-quote mt-6 max-w-xl font-display text-xl italic text-[var(--fg-2)]">
             “{pick(domain.tagline, lang)}”
           </p>
         </Reveal>

@@ -117,6 +117,20 @@ const INTRO: { cmd: string; out: string[] }[] = [
   },
 ];
 
+/* zsh-style colored prompt: saleh@saleh.im ~/portfolio $ */
+function Prompt() {
+  return (
+    <span className="shrink-0 select-none">
+      <span style={{ color: "var(--accent)" }}>{USER}</span>
+      <span style={{ opacity: 0.45 }}>@</span>
+      <span style={{ color: "#7fd1ff" }}>{HOST}</span>
+      <span style={{ opacity: 0.45 }}> </span>
+      <span style={{ color: "#c9a6ff" }}>~/portfolio</span>
+      <span style={{ color: "var(--accent)" }}> ❯</span>
+    </span>
+  );
+}
+
 export function Terminal() {
   const { t } = useLang();
   const [lines, setLines] = useState<Line[]>([]);
@@ -263,40 +277,60 @@ export function Terminal() {
             <Reveal delay={80}>
               <div
                 dir="ltr"
-                className="overflow-hidden rounded-2xl"
-                style={{ background: "#07090a", border: "1px solid var(--line-2)", boxShadow: "0 30px 80px -30px var(--shadow)" }}
+                className="relative overflow-hidden rounded-2xl"
+                style={{
+                  background: "linear-gradient(180deg,#0a0e0d 0%,#07090a 100%)",
+                  border: "1px solid var(--line-2)",
+                  boxShadow: "0 40px 90px -40px var(--shadow), inset 0 1px 0 rgba(255,255,255,0.05), inset 0 0 120px -60px var(--glow)",
+                }}
                 onClick={() => inputRef.current?.focus()}
               >
-                <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+                {/* scanline sheen */}
+                <div
+                  className="pointer-events-none absolute inset-0 z-10"
+                  aria-hidden
+                  style={{
+                    background: "repeating-linear-gradient(180deg, rgba(255,255,255,0.02) 0px, rgba(255,255,255,0.02) 1px, transparent 1px, transparent 3px)",
+                    mixBlendMode: "overlay",
+                    opacity: 0.5,
+                  }}
+                />
+
+                {/* title bar */}
+                <div className="relative z-20 flex items-center justify-between px-4 py-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.02)" }}>
                   <div className="flex items-center gap-1.5">
-                    <span className="h-3 w-3 rounded-full" style={{ background: "#ff5f56" }} />
-                    <span className="h-3 w-3 rounded-full" style={{ background: "#ffbd2e" }} />
-                    <span className="h-3 w-3 rounded-full" style={{ background: "#27c93f" }} />
+                    <span className="h-3 w-3 rounded-full" style={{ background: "#ff5f56", boxShadow: "0 0 8px rgba(255,95,86,0.5)" }} />
+                    <span className="h-3 w-3 rounded-full" style={{ background: "#ffbd2e", boxShadow: "0 0 8px rgba(255,189,46,0.4)" }} />
+                    <span className="h-3 w-3 rounded-full" style={{ background: "#27c93f", boxShadow: "0 0 8px rgba(39,201,63,0.45)" }} />
                   </div>
-                  <span className="mono text-xs" style={{ color: "var(--accent)" }}>{USER}@{HOST}: ~ — zsh</span>
-                  <span className="w-12" />
+                  <span className="mono text-xs" style={{ color: "#8aa0a0" }}>
+                    <span style={{ color: "var(--accent)" }}>{USER}</span>
+                    <span style={{ opacity: 0.6 }}> — ~/portfolio — zsh</span>
+                  </span>
+                  <span className="mono text-[10px]" style={{ color: "#8aa0a0", opacity: 0.5 }}>⌘</span>
                 </div>
 
-                <div ref={scrollRef} className="mono h-[380px] overflow-y-auto px-4 py-4 text-[13px] leading-relaxed sm:text-sm" style={{ color: "var(--accent)" }}>
+                {/* screen */}
+                <div ref={scrollRef} className="relative z-20 mono h-[360px] overflow-y-auto px-4 py-4 text-[13px] leading-relaxed sm:text-sm" style={{ color: "var(--accent)" }}>
                   {lines.map((line, i) => {
                     if (line.type === "cmd")
                       return (
-                        <div key={i} className="flex gap-2 whitespace-pre-wrap break-words">
-                          <span className="shrink-0" style={{ opacity: 0.7 }}>{PROMPT}</span>
-                          <span style={{ color: "#e8ffe0" }}>{line.text}</span>
+                        <div key={i} className="flex flex-wrap gap-x-2 whitespace-pre-wrap break-words">
+                          <Prompt />
+                          <span style={{ color: "#eafff0" }}>{line.text}</span>
                         </div>
                       );
                     if (line.type === "sys")
-                      return <div key={i} className="my-1 whitespace-pre-wrap break-words" style={{ opacity: 0.45 }}>{line.text}</div>;
-                    return <div key={i} className="whitespace-pre-wrap break-words" style={{ opacity: 0.9 }}>{line.text}</div>;
+                      return <div key={i} className="my-1.5 whitespace-pre-wrap break-words" style={{ opacity: 0.4 }}>{line.text}</div>;
+                    return <div key={i} className="whitespace-pre-wrap break-words" style={{ opacity: 0.88 }}>{line.text}</div>;
                   })}
 
                   {interactive && (
-                    <div className="flex gap-2">
-                      <span className="shrink-0" style={{ opacity: 0.7 }}>{PROMPT}</span>
-                      <span className="relative flex-1">
-                        <span className="whitespace-pre-wrap break-words" style={{ color: "#e8ffe0" }}>{value}</span>
-                        <span className="caret ms-0.5 inline-block h-4 w-2 translate-y-0.5 align-middle" style={{ background: "var(--accent)" }} />
+                    <div className="flex flex-wrap gap-x-2">
+                      <Prompt />
+                      <span className="relative min-w-[1ch] flex-1">
+                        <span className="whitespace-pre-wrap break-words" style={{ color: "#eafff0" }}>{value}</span>
+                        <span className="caret ms-0.5 inline-block h-4 w-2 translate-y-0.5 align-middle" style={{ background: "var(--accent)", boxShadow: "0 0 8px var(--glow)" }} />
                         <input
                           ref={inputRef}
                           value={value}
@@ -313,7 +347,16 @@ export function Terminal() {
                     </div>
                   )}
 
-                  {!interactive && !booted && <div style={{ opacity: 0.45 }}>initializing shell…</div>}
+                  {!interactive && !booted && <div style={{ opacity: 0.4 }}>initializing shell…</div>}
+                </div>
+
+                {/* status bar */}
+                <div className="relative z-20 flex items-center justify-between px-4 py-2 mono text-[10px]" style={{ borderTop: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.02)", color: "#8aa0a0" }}>
+                  <span className="flex items-center gap-1.5">
+                    <span className="h-1.5 w-1.5 rounded-full" style={{ background: interactive ? "#27c93f" : "#ffbd2e" }} />
+                    {interactive ? "ready" : "booting"} · zsh · utf-8
+                  </span>
+                  <span style={{ opacity: 0.7 }}>{lines.length} lines · ↑↓ history</span>
                 </div>
               </div>
             </Reveal>

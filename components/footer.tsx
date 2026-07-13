@@ -13,8 +13,8 @@ export function Footer() {
         <div className="rule mb-10" />
         <div className="edge-fade overflow-hidden">
           {lang === "fa" ? (
-            <div className="fa-nastaliq select-none text-center text-[26vw] leading-[1.6] text-[var(--fg-2)] opacity-10 sm:text-[15rem]">
-              صالح
+            <div className="fa-accent select-none text-center text-[24vw] leading-[1.1] text-[var(--fg-2)] opacity-10 sm:text-[15rem]">
+              صالح ثقفیانی
             </div>
           ) : (
             <div className="display select-none text-center text-[22vw] leading-none text-[var(--fg-2)] opacity-10 sm:text-[16rem] force-ltr">
