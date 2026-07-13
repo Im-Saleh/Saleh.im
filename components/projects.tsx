@@ -1,67 +1,15 @@
 "use client";
 
-import { useRef } from "react";
 import { Reveal } from "./reveal";
 import { projects, pick, profile, type Project } from "@/lib/data";
 import { useLang } from "./lang-provider";
+import { Showcase } from "./showcase";
 
 function Arrow({ external }: { external?: boolean }) {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="transition-transform duration-300 group-hover:translate-x-1 group-hover:-translate-y-1">
       {external ? <path d="M7 17 17 7M8 7h9v9" /> : <path d="M5 12h14M13 6l6 6-6 6" />}
     </svg>
-  );
-}
-
-function useSheen() {
-  const ref = useRef<HTMLAnchorElement>(null);
-  const onMove = (e: React.PointerEvent) => {
-    const el = ref.current;
-    if (!el) return;
-    const r = el.getBoundingClientRect();
-    el.style.setProperty("--px", `${e.clientX - r.left}px`);
-    el.style.setProperty("--py", `${e.clientY - r.top}px`);
-  };
-  return { ref, onMove };
-}
-
-function FeatureCard({ p }: { p: Project }) {
-  const { t, lang } = useLang();
-  const { ref, onMove } = useSheen();
-  const external = !p.internal;
-  return (
-    <a
-      ref={ref}
-      onPointerMove={onMove}
-      href={p.href}
-      target={external ? "_blank" : undefined}
-      rel={external ? "noopener noreferrer" : undefined}
-      className="sheen elev glow-border group relative flex flex-col justify-between overflow-hidden rounded-3xl p-8 sm:p-10"
-      style={{
-        background: p.accent ? "var(--accent)" : "var(--bg-2)",
-        color: p.accent ? "var(--on-accent)" : "var(--fg)",
-        border: "1px solid var(--line)",
-        minHeight: "22rem",
-      }}
-    >
-      <div className="flex items-start justify-between">
-        <span className="mono text-xs uppercase tracking-widest" style={{ opacity: 0.7 }}>
-          {p.internal ? t.projects.live : `${t.projects.repoBadge} · ${p.year}`}
-        </span>
-        <Arrow external={external} />
-      </div>
-      <div>
-        <h3 className="display text-4xl sm:text-5xl">{pick(p.title, lang)}</h3>
-        <p className="mt-4 max-w-md leading-relaxed" style={{ opacity: 0.82 }}>{pick(p.description, lang)}</p>
-        <div className="mt-6 flex flex-wrap gap-2">
-          {p.tags.map((tag) => (
-            <span key={tag} className="rounded-full px-3 py-1 mono text-[11px] force-ltr" style={{ border: `1px solid ${p.accent ? "rgba(0,0,0,0.2)" : "var(--line-2)"}` }}>
-              {tag}
-            </span>
-          ))}
-        </div>
-      </div>
-    </a>
   );
 }
 
@@ -120,15 +68,9 @@ export function Projects() {
           </div>
         </Reveal>
 
-        <div className="mt-12 grid gap-4 lg:grid-cols-3">
-          {featured.map((p, i) => (
-            <Reveal key={p.name} delay={i * 70} className={i === 0 ? "lg:col-span-2" : ""}>
-              <FeatureCard p={p} />
-            </Reveal>
-          ))}
-        </div>
+        <Showcase items={featured} />
 
-        <div className="mt-12">
+        <div className="mt-16">
           {rest.map((p, i) => (
             <Reveal key={p.name} delay={i * 50}>
               <ListRow p={p} i={i} />

@@ -51,7 +51,7 @@ export function Footer() {
     elseTitle: fa ? "جاهای دیگر" : "Elsewhere",
     nowTitle: fa ? "این روزها" : "Currently",
     nowText: fa
-      ? "در حال ساختِ ابزارهای بلادرنگ و تجربه‌های وبِ رمزنگاری‌شده."
+      ? "در حال ساختِ ابزارهای لایو و تجربه‌های وبِ رمزنگاری‌شده."
       : "Building real-time tools and encrypted web experiences.",
     built: fa ? "ساخته‌شده با Next.js و React" : "Built with Next.js & React",
     top: fa ? "بازگشت به بالا" : "Back to top",

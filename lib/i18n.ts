@@ -99,13 +99,13 @@ const en: Dict = {
 };
 
 /* Persian written by a developer, not a translator — real idioms, English
-   tech terms kept where devs actually use them (edge, real-time → بلادرنگ, …). */
+   tech terms kept where devs actually use them (edge, real-time → لایو, …). */
 const fa: Dict = {
   nav: { about: "درباره", skills: "بلدی‌ها", journey: "مسیر", work: "کارها", shell: "ترمینال", contact: "تماس", menu: "منو" },
   hero: {
     available: "پایه‌ی همکاری‌ام",
     build: "سریع می‌سازم",
-    rotating: ["برای وب.", "روی WebRTC.", "توی مرورگر.", "به‌صورت بلادرنگ.", "با وسواس."],
+    rotating: ["برای وب.", "روی WebRTC.", "توی مرورگر.", "به‌صورت لایو.", "با وسواس."],
     bio: "برنامه‌نویسِ خودآموخته‌ام؛ کارم ساختنِ محصولاتِ سریع و خوش‌ساخت برای وب است — از ابزارهای همکاریِ تیمی تا پیام‌رسان‌های رمزنگاری‌شده. از ۲۰۲۲ کد می‌زنم و کارهایم را متن‌باز منتشر می‌کنم.",
     seeWork: "کارها را ببین",
     sayHello: "سلام کن",

@@ -96,7 +96,7 @@ export const domains: SkillDomain[] = [
   },
   {
     key: "realtime",
-    title: { en: "Real-time & Backend", fa: "بلادرنگ و بک‌اند" },
+    title: { en: "Real-time & Backend", fa: "لایو و بک‌اند" },
     tagline: {
       en: "Systems that move data fast, reliably, and at scale.",
       fa: "سیستم‌هایی که داده را سریع، قابل‌اعتماد و در مقیاس جابه‌جا می‌کنند.",
@@ -123,11 +123,11 @@ export const domains: SkillDomain[] = [
         tags: ["DataChannels", "STUN/ICE", "Realtime", "P2P"],
         summary: {
           en: "Live, peer-to-peer and collaborative experiences.",
-          fa: "تجربه‌های بلادرنگ، همتا‌به‌همتا و مشارکتی.",
+          fa: "تجربه‌های لایو، همتا‌به‌همتا و مشارکتی.",
         },
         detail: {
           en: "Direct browser-to-browser communication over WebRTC DataChannels — ICE/STUN negotiation, reliable ordered channels and rendezvous schemes — plus WebSocket back-ends for live, collaborative UIs.",
-          fa: "ارتباط مستقیم مرورگر‌به‌مرورگر روی DataChannelهای WebRTC — مذاکره‌ی ICE/STUN، کانال‌های مرتب و قابل‌اعتماد و طرح‌های ملاقات — به‌همراه بک‌اند WebSocket برای رابط‌های بلادرنگ و مشارکتی.",
+          fa: "ارتباط مستقیم مرورگر‌به‌مرورگر روی DataChannelهای WebRTC — مذاکره‌ی ICE/STUN، کانال‌های مرتب و قابل‌اعتماد و طرح‌های ملاقات — به‌همراه بک‌اند WebSocket برای رابط‌های لایو و مشارکتی.",
         },
       },
       {
@@ -238,13 +238,26 @@ export const projects: Project[] = [
   },
   {
     name: "Lumen",
-    title: { en: "Lumen — Live Analytics", fa: "لومن — تحلیل بلادرنگ" },
+    title: { en: "Lumen — Live Markets Dashboard", fa: "لومن — داشبورد بازار زنده" },
     description: {
-      en: "A privacy-first analytics dashboard with streaming charts that update in real time — animated area graphs, live counters, a world traffic map and event feed. Lightweight, cookie-free and buttery-smooth. Built in React.",
-      fa: "یک داشبوردِ تحلیلِ حریم‌خصوصی‌محور با نمودارهایی که بلادرنگ آپدیت می‌شوند — نمودارهای مساحتیِ متحرک، شمارنده‌های زنده، نقشه‌ی ترافیک و فیدِ رویداد. سبک، بدون کوکی و کاملاً روان. ساخته‌شده با React.",
+      en: "A real-time markets dashboard pulling live data from the CoinGecko API — animated area charts, KPI counters, a market-sentiment gauge, a dominance donut and a sortable table with live sparklines. Real data, buttery-smooth, built in React.",
+      fa: "یک داشبورد بازارِ زنده که داده‌ی واقعی را از API کوین‌گکو می‌گیرد — نمودارهای مساحتیِ متحرک، شمارنده‌های KPI، گیجِ احساسِ بازار، دوناتِ سلطه و جدولِ زنده با اسپارک‌لاین. داده‌ی واقعی، کاملاً روان، ساخته‌شده با React.",
     },
-    tags: ["React", "Data-viz", "Realtime", "Canvas"],
+    tags: ["React", "Data-viz", "Live API", "Charts"],
     href: `${BASE_PATH}/lumen/`,
+    year: "2026",
+    featured: true,
+    internal: true,
+  },
+  {
+    name: "Probe",
+    title: { en: "Probe — Connection Inspector", fa: "پروب — بازرسِ اتصال" },
+    description: {
+      en: "A live connection & privacy inspector that runs entirely in your browser: public IP + geo from the edge, real WebRTC candidate gathering (local-IP leak detection), live latency probes to global endpoints, the Network Information API and a device fingerprint surface — with a privacy score. All real, nothing stored.",
+      fa: "یک بازرسِ اتصال و حریمِ خصوصی که کاملاً در مرورگرِ تو اجرا می‌شود: آی‌پیِ عمومی و موقعیت از لبه، جمع‌آوریِ واقعیِ کاندیداهای WebRTC (تشخیصِ افشای آی‌پیِ محلی)، سنجشِ زنده‌ی تأخیر تا سرورهای جهانی، Network Information API و سطحِ اثرانگشتِ دستگاه — به‌همراه امتیازِ حریمِ خصوصی. همه واقعی، بدونِ ذخیره‌سازی.",
+    },
+    tags: ["WebRTC", "Networking", "Privacy", "Web APIs"],
+    href: `${BASE_PATH}/probe/`,
     year: "2026",
     featured: true,
     internal: true,
@@ -254,12 +267,11 @@ export const projects: Project[] = [
     title: { en: "Aperture — Collaborative Canvas", fa: "آپرچر — بوم مشارکتی" },
     description: {
       en: "A real-time collaborative whiteboard where cursors, shapes and notes sync instantly across everyone in the room — built on WebRTC and a CRDT so edits never conflict, even offline.",
-      fa: "یک وایت‌بوردِ مشارکتیِ بلادرنگ که در آن مکان‌نماها، اشکال و یادداشت‌ها بلافاصله بین همه‌ی افراد اتاق هم‌گام می‌شوند — روی WebRTC و یک CRDT ساخته شده تا ویرایش‌ها هیچ‌وقت تداخل نکنند، حتی آفلاین.",
+      fa: "یک وایت‌بوردِ مشارکتیِ لایو که در آن مکان‌نماها، اشکال و یادداشت‌ها بلافاصله بین همه‌ی افراد اتاق هم‌گام می‌شوند — روی WebRTC و یک CRDT ساخته شده تا ویرایش‌ها هیچ‌وقت تداخل نکنند، حتی آفلاین.",
     },
     tags: ["WebRTC", "CRDT", "Canvas", "Realtime"],
     href: "https://github.com/W2F-Sa",
     year: "2025",
-    featured: true,
   },
   {
     name: "Prism",
@@ -347,10 +359,10 @@ export const timeline: TimelineItem[] = [
   },
   {
     period: "2024",
-    title: { en: "Real-time & systems", fa: "بلادرنگ و سیستم‌ها" },
+    title: { en: "Real-time & systems", fa: "لایو و سیستم‌ها" },
     description: {
       en: "Focused on real-time experiences — WebRTC, streaming data and WebSockets — and on performance work that keeps larger apps fast.",
-      fa: "روی تجربه‌های بلادرنگ تمرکز کردم — WebRTC، داده‌ی جاری و WebSocket — و روی کارِ کارایی که اپ‌های بزرگ‌تر را سریع نگه می‌دارد.",
+      fa: "روی تجربه‌های لایو تمرکز کردم — WebRTC، داده‌ی جاری و WebSocket — و روی کارِ کارایی که اپ‌های بزرگ‌تر را سریع نگه می‌دارد.",
     },
   },
   {

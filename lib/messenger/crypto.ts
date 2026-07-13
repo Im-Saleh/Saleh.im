@@ -101,10 +101,21 @@ export async function exportPub(pair: CryptoKeyPair): Promise<string> {
   const raw = await subtle().exportKey("raw", pair.publicKey);
   return b64(new Uint8Array(raw));
 }
-export async function deriveShared(pair: CryptoKeyPair, peerPubB64: string): Promise<SessionKeys> {
+export async function deriveShared(pair: CryptoKeyPair, peerPubB64: string, context = ""): Promise<SessionKeys> {
   const peerKey = await subtle().importKey("raw", unb64(peerPubB64), { name: "ECDH", namedCurve: "P-256" }, false, []);
   const bits = await subtle().deriveBits({ name: "ECDH", public: peerKey }, pair.privateKey, 256);
+  // Bind the session key to both identities (handles) so a man-in-the-middle
+  // with a different identity produces a different safety number.
+  if (context) {
+    const digest = await subtle().digest("SHA-256", concat(new Uint8Array(bits), enc.encode(context)));
+    return expandKeys(digest);
+  }
   return expandKeys(bits);
+}
+
+/** A short, human-comparable safety number, grouped for readability. */
+export function safetyNumber(fp: string): string {
+  return (fp.match(/.{1,4}/g) || [fp]).join(" ");
 }
 
 /* ---------- AES-GCM layer ---------- */
