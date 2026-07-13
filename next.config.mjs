@@ -1,20 +1,53 @@
 /** @type {import('next').NextConfig} */
 
-// When building for GitHub Pages (a project site served from
-// https://<user>.github.io/<repo>/) we need a base path. The workflow sets
-// NEXT_PUBLIC_BASE_PATH=/Saleh.im. For Cloudflare Pages / local dev it stays
-// empty so the site is served from the root.
-const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
+/**
+ * Built for Cloudflare Workers via @opennextjs/cloudflare.
+ * (No `output: export` — OpenNext needs the full Next server build.)
+ * Aggressive, safe caching is applied to immutable build assets so the site
+ * loads instantly on repeat visits, including on mobile.
+ */
+const IMMUTABLE = "public, max-age=31536000, immutable";
 
 const nextConfig = {
-  // Static HTML export — served by Cloudflare Pages/Workers or GitHub Pages
-  // with zero server runtime.
-  output: "export",
   reactStrictMode: true,
-  trailingSlash: true,
-  ...(basePath ? { basePath, assetPrefix: basePath } : {}),
+  poweredByHeader: false,
+  compress: true,
   images: {
+    // The Cloudflare image optimizer isn't wired up; keep images raw & fast.
     unoptimized: true,
+  },
+  // Trim the client bundle a touch.
+  experimental: {
+    optimizePackageImports: ["peerjs"],
+  },
+  async headers() {
+    return [
+      {
+        source: "/_next/static/:path*",
+        headers: [{ key: "Cache-Control", value: IMMUTABLE }],
+      },
+      {
+        source: "/favicon.svg",
+        headers: [{ key: "Cache-Control", value: "public, max-age=604800" }],
+      },
+      {
+        source: "/:all*(svg|jpg|jpeg|png|webp|avif|woff2|woff)",
+        headers: [{ key: "Cache-Control", value: IMMUTABLE }],
+      },
+      {
+        // The live IP endpoint must never be cached.
+        source: "/api/:path*",
+        headers: [{ key: "Cache-Control", value: "no-store" }],
+      },
+      {
+        source: "/:path*",
+        headers: [
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "X-Frame-Options", value: "SAMEORIGIN" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+        ],
+      },
+    ];
   },
 };
 

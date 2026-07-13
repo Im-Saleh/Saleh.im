@@ -66,7 +66,7 @@ npx wrangler pages deploy out --project-name=saleh-im
 ```
 app/                # Next.js App Router (layout, page, styles)
 components/         # UI sections (hero, about, terminal, ip-tool, …)
-lib/data.ts         # Real profile + project data (from github.com/W2F-Sa)
+lib/data.ts         # Real profile + project data (from github.com/im-saleh)
 functions/api/ip.ts # Cloudflare Pages Function — GET /api/ip
 public/apps/        # P2P messenger + Secret Chat
 .github/workflows/  # Build & deploy pipeline
@@ -76,7 +76,7 @@ public/apps/        # P2P messenger + Secret Chat
 
 - **Email:** salehcodez@gmail.com
 - **Telegram:** [@dm_saleh](https://t.me/dm_saleh)
-- **GitHub:** [@W2F-Sa](https://github.com/W2F-Sa)
+- **GitHub:** [@im-saleh](https://github.com/im-saleh)
 
 ---
 

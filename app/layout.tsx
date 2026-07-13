@@ -34,8 +34,8 @@ export const metadata: Metadata = {
   title: "Saleh Saghafiani — Software Engineer",
   description:
     "Portfolio & resume of Saleh Saghafiani (Saleh). Software engineer crafting fast, elegant products for the web — real-time tools and encrypted apps. Shipping since 2022.",
-  keywords: ["Saleh Saghafiani", "Saleh", "software engineer", "React", "Next.js", "portfolio", "W2F-Sa"],
-  authors: [{ name: "Saleh Saghafiani", url: "https://github.com/W2F-Sa" }],
+  keywords: ["Saleh Saghafiani", "Saleh", "software engineer", "React", "Next.js", "portfolio", "im-saleh"],
+  authors: [{ name: "Saleh Saghafiani", url: "https://github.com/im-saleh" }],
   creator: "Saleh Saghafiani",
   openGraph: {
     title: "Saleh Saghafiani — Software Engineer",

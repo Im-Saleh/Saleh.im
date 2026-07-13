@@ -1,24 +1,23 @@
-name: Build & Deploy
+name: CI
+
+# The site now runs on Cloudflare Workers via OpenNext (not a static export).
+# Day-to-day deploys are done manually with `npm run deploy`. This workflow
+# only verifies that the app builds on every push, and — if (and only if)
+# Cloudflare credentials are present as repo secrets — publishes to Workers.
 
 on:
   push:
     branches: [main]
+  pull_request:
   workflow_dispatch:
 
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
 concurrency:
-  group: pages
-  cancel-in-progress: false
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   # ---------------------------------------------------------------------------
-  # Build the static site for GitHub Pages. This job never touches the Pages
-  # API, so it always succeeds and always uploads the artifact — even if Pages
-  # happens to be disabled on the repo.
+  # Always-green build check. Verifies types + production build compile.
   # ---------------------------------------------------------------------------
   build:
     runs-on: ubuntu-latest
@@ -35,41 +34,17 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build static site
+      - name: Build (Next.js)
         run: npm run build
-        env:
-          # Project page lives at https://<user>.github.io/Saleh.im/
-          NEXT_PUBLIC_BASE_PATH: /Saleh.im
-
-      - name: Disable Jekyll (serve _next/ assets)
-        run: touch out/.nojekyll
-
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: out
 
   # ---------------------------------------------------------------------------
-  # Deploy to GitHub Pages. Requires Pages to be enabled with the source set to
-  # "GitHub Actions" (Settings -> Pages). If Pages is disabled this job fails,
-  # but the build above still succeeds and uploads a downloadable artifact.
+  # Optional deploy to Cloudflare Workers via OpenNext. Skipped entirely unless
+  # both secrets are set, so the workflow never fails just because deployment
+  # isn't configured. Manual deploys via `npm run deploy` remain the default.
   # ---------------------------------------------------------------------------
-  deploy:
+  deploy-workers:
     needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
-
-  # ---------------------------------------------------------------------------
-  # OPTIONAL: also deploy to Cloudflare Pages (root path, no base path). Runs
-  # only if the Cloudflare secrets are configured.
-  # ---------------------------------------------------------------------------
-  deploy-cloudflare:
+    if: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
     runs-on: ubuntu-latest
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -78,21 +53,18 @@ jobs:
       - name: Checkout
         if: ${{ env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != '' }}
         uses: actions/checkout@v4
+
       - name: Setup Node
         if: ${{ env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != '' }}
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
-      - name: Install & build (root base path)
+
+      - name: Install dependencies
         if: ${{ env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != '' }}
-        run: |
-          npm ci
-          npm run build
-      - name: Deploy to Cloudflare Pages
+        run: npm ci
+
+      - name: Build & deploy to Cloudflare Workers (OpenNext)
         if: ${{ env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != '' }}
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy out --project-name=saleh-im --branch=main
+        run: npm run deploy

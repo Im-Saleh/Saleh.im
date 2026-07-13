@@ -10,15 +10,15 @@ export const pick = (s: L10n, lang: Lang) => s[lang];
 export const profile = {
   name: { en: "Saleh Saghafiani", fa: "محمدصالح ثقفیانی" } as L10n,
   nickname: { en: "Saleh", fa: "صالح" } as L10n,
-  handle: "@W2F-Sa",
+  handle: "@im-saleh",
   role: { en: "Software Engineer & Product Builder", fa: "مهندس نرم‌افزار و سازنده‌ی محصول" } as L10n,
   activeSince: 2022,
   location: { en: "Iran", fa: "ایران" } as L10n,
   email: "salehcodez@gmail.com",
   telegram: "dm_saleh",
   telegramUrl: "https://t.me/dm_saleh",
-  github: "https://github.com/W2F-Sa",
-  githubUser: "W2F-Sa",
+  github: "https://github.com/im-saleh",
+  githubUser: "im-saleh",
 };
 
 /* ------------------------------------------------------------------ */
@@ -270,7 +270,7 @@ export const projects: Project[] = [
       fa: "یک وایت‌بوردِ مشارکتیِ لایو که در آن مکان‌نماها، اشکال و یادداشت‌ها بلافاصله بین همه‌ی افراد اتاق هم‌گام می‌شوند — روی WebRTC و یک CRDT ساخته شده تا ویرایش‌ها هیچ‌وقت تداخل نکنند، حتی آفلاین.",
     },
     tags: ["WebRTC", "CRDT", "Canvas", "Realtime"],
-    href: "https://github.com/W2F-Sa",
+    href: "https://github.com/im-saleh",
     year: "2025",
   },
   {
@@ -281,7 +281,7 @@ export const projects: Project[] = [
       fa: "یک کتابخانه‌ی کامپوننتِ Reactِ بی‌سر و جعبه‌ابزارِ دیزاین‌سیستم: المان‌های پایه‌ی دسترس‌پذیر، موتورِ تمِ مبتنی بر توکن و استایلِ بدونِ رانتایم — پایه‌ای که برای هر محصولِ جدید سراغش می‌روم.",
     },
     tags: ["React", "Design System", "a11y", "Tokens"],
-    href: "https://github.com/W2F-Sa",
+    href: "https://github.com/im-saleh",
     year: "2025",
   },
   {
@@ -292,7 +292,7 @@ export const projects: Project[] = [
       fa: "یک مدیرِ رمزِ عبورِ بدونِ دانش: همه‌چیز سمتِ کلاینت با Argon2 و AES-GCM رمزنگاری می‌شود، قبل از هر هم‌گام‌سازی. سرور جز متنِ رمزشده چیزی نمی‌بیند.",
     },
     tags: ["WebCrypto", "Argon2", "Security", "Sync"],
-    href: "https://github.com/W2F-Sa",
+    href: "https://github.com/im-saleh",
     year: "2025",
   },
   {
@@ -303,7 +303,7 @@ export const projects: Project[] = [
       fa: "یک مسیریابِ وب‌هوک و اتوماسیونِ سلف‌هاست: رویداد می‌گیرد، تبدیلش می‌کند و با retry و امضا به هر مقصدی می‌فرستد — با یک سازنده‌ی خط لوله‌ی بصریِ تمیز.",
     },
     tags: ["Node.js", "Webhooks", "Queues", "TypeScript"],
-    href: "https://github.com/W2F-Sa",
+    href: "https://github.com/im-saleh",
     year: "2024",
   },
   {
@@ -314,7 +314,7 @@ export const projects: Project[] = [
       fa: "یک صفحه‌ی وضعیت و مانیتورِ آپ‌تایمِ زیبا: بررسی از چند منطقه، خط‌زمانِ رخدادها، نمودارِ تأخیر و هشدارِ آنی — با یک صفحه‌ی عمومی که کاربرانت واقعاً بهش اعتماد می‌کنند.",
     },
     tags: ["Monitoring", "Charts", "Alerts", "Edge"],
-    href: "https://github.com/W2F-Sa",
+    href: "https://github.com/im-saleh",
     year: "2024",
   },
   {
@@ -325,7 +325,7 @@ export const projects: Project[] = [
       fa: "یک اپِ یادداشتِ آفلاین‌محور و مبتنی بر مارک‌داون، با جست‌وجوی متنِ کاملِ آنی، لینک‌های دوطرفه و هم‌گام‌سازیِ رمزنگاری‌شده‌ی سرتاسری بین دستگاه‌ها.",
     },
     tags: ["Offline-first", "Markdown", "Search", "Sync"],
-    href: "https://github.com/W2F-Sa",
+    href: "https://github.com/im-saleh",
     year: "2023",
   },
 ];
