@@ -36,7 +36,7 @@ function FeatureCard({ p }: { p: Project }) {
       href={p.href}
       target={external ? "_blank" : undefined}
       rel={external ? "noopener noreferrer" : undefined}
-      className="sheen group relative flex flex-col justify-between overflow-hidden rounded-3xl p-8 sm:p-10"
+      className="sheen elev glow-border group relative flex flex-col justify-between overflow-hidden rounded-3xl p-8 sm:p-10"
       style={{
         background: p.accent ? "var(--accent)" : "var(--bg-2)",
         color: p.accent ? "var(--on-accent)" : "var(--fg)",

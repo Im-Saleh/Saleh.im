@@ -53,14 +53,14 @@
 
 html[dir="rtl"] {
   --font-sans: "Shabnam", var(--font-fa-ui), sans-serif;
-  --font-display: "Gandom", "Shabnam", sans-serif;
+  --font-display: "Shabnam", var(--font-fa-ui), sans-serif;
   --font-mono: var(--font-fa-ui), "Shabnam", sans-serif;
 }
 
-/* Gandom is a display face — relax its size a touch for headings */
+/* Persian headings: Shabnam, semi-bold, comfortable line-height */
 html[dir="rtl"] .display {
-  font-weight: 400;
-  line-height: 1.28;
+  font-weight: 700;
+  line-height: 1.3;
   letter-spacing: 0;
 }
 html[dir="rtl"] .display-italic {
@@ -75,9 +75,11 @@ html[dir="rtl"] p {
   line-height: 1.9;
 }
 
+/* The big hero name — Vazirmatn Black: round, soft, heavy */
 html[dir="rtl"] .fa-accent {
-  font-family: "Gandom", var(--font-fa-ui), sans-serif;
-  font-weight: 400;
+  font-family: var(--font-fa-ui), "Shabnam", sans-serif;
+  font-weight: 900;
+  letter-spacing: -0.01em;
 }
 html[dir="rtl"] .fa-quote {
   font-family: "Samim", var(--font-fa-ui), serif;
@@ -415,6 +417,189 @@ body::before {
 .rule {
   height: 1px;
   background: linear-gradient(90deg, transparent, var(--line-2), transparent);
+}
+
+/* =========================================================================
+   PREMIUM POLISH  (interaction, focus, micro-detail)
+   ========================================================================= */
+
+/* Accessible focus ring — only for keyboard users */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Smooth, unified interactive transitions */
+a,
+button,
+input,
+textarea,
+.chip,
+.panel {
+  transition-property: color, background-color, border-color, box-shadow, transform, opacity;
+  transition-duration: 0.22s;
+  transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Accent buttons get a sweeping shine on hover */
+.btn-accent {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+.btn-accent::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(
+    120deg,
+    transparent 20%,
+    color-mix(in srgb, #fff 45%, transparent) 50%,
+    transparent 80%
+  );
+  transform: translateX(-130%);
+  transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.btn-accent:hover::after {
+  transform: translateX(130%);
+}
+
+/* Outline buttons: subtle fill sweep */
+.btn-outline {
+  position: relative;
+  overflow: hidden;
+}
+.btn-outline::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--accent);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  z-index: -1;
+}
+
+/* Chips lift a touch and tint on hover */
+.chip {
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s, color 0.2s, background 0.2s;
+}
+.chip:hover {
+  transform: translateY(-2px);
+  border-color: var(--line-2);
+  color: var(--fg);
+}
+
+/* Gradient hairline that appears on card hover (premium edge light) */
+.glow-border {
+  position: relative;
+}
+.glow-border::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, var(--accent), transparent 40%, transparent 60%, var(--accent-2));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+  pointer-events: none;
+}
+.glow-border:hover::before {
+  opacity: 0.7;
+}
+
+/* Keyboard key hint */
+.kbd {
+  font-family: var(--font-mono), monospace;
+  font-size: 0.7rem;
+  padding: 2px 7px;
+  border-radius: 6px;
+  border: 1px solid var(--line-2);
+  background: var(--bg-3);
+  box-shadow: 0 2px 0 var(--line-2);
+  line-height: 1;
+}
+
+/* Simple CSS tooltip */
+.tip {
+  position: relative;
+}
+.tip::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  white-space: nowrap;
+  background: var(--fg);
+  color: var(--bg);
+  font-size: 0.7rem;
+  padding: 4px 8px;
+  border-radius: 6px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.tip:hover::after {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* Section number watermark utility */
+.section-index {
+  font-family: var(--font-display), serif;
+  font-size: clamp(4rem, 12vw, 9rem);
+  line-height: 1;
+  color: var(--fg);
+  opacity: 0.04;
+  user-select: none;
+  pointer-events: none;
+}
+
+/* Gentle entrance for staggered lists */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 14px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Shimmer skeleton (used while data resolves) */
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--bg-3);
+}
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--fg) 8%, transparent), transparent);
+  animation: sk 1.4s infinite;
+}
+@keyframes sk {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* Pretty, thin scrollbars inside app panels */
+.thin-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-2) transparent;
 }
 
 .tag-dot {

@@ -21,7 +21,7 @@ const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono", displ
        Farsi is active. ---- */
 const vazir = Vazirmatn({
   subsets: ["arabic"],
-  weight: ["400", "500", "600", "700"],
+  weight: ["400", "500", "700", "900"],
   variable: "--font-fa-ui",
   display: "swap",
   preload: false,
@@ -52,7 +52,6 @@ export const viewport: Viewport = { width: "device-width", initialScale: 1 };
 const FA_FONTS = [
   "https://cdn.jsdelivr.net/gh/rastikerdar/shabnam-font@v5.0.1/dist/font-face.css",
   "https://cdn.jsdelivr.net/gh/rastikerdar/samim-font@v4.0.5/dist/font-face.css",
-  "https://cdn.jsdelivr.net/gh/rastikerdar/gandom-font@0.8/dist/font-face.css",
 ];
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

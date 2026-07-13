@@ -76,10 +76,14 @@ function runCommand(raw: string): string[] {
       return [args.join(" ")];
     case "open":
       if (/messeng|chat|cipher/i.test(args[0] || "")) {
-        if (typeof window !== "undefined") window.open(`${BASE_PATH}/apps/messenger/`, "_blank");
-        return ["opening Cipher messenger in a new tab…"];
+        if (typeof window !== "undefined") window.open(`${BASE_PATH}/messenger/`, "_blank");
+        return ["opening Cipher messenger…"];
       }
-      return [`open: unknown app '${args[0] || ""}'. try: open messenger`];
+      if (/lumen|dash|analy/i.test(args[0] || "")) {
+        if (typeof window !== "undefined") window.open(`${BASE_PATH}/lumen/`, "_blank");
+        return ["opening Lumen dashboard…"];
+      }
+      return [`open: unknown app '${args[0] || ""}'. try: open messenger | open lumen`];
     case "neofetch":
       return [
         `${USER}@${HOST}`,
@@ -95,7 +99,7 @@ function runCommand(raw: string): string[] {
     case "sudo":
       return ["[sudo] password for saleh:", "nice try — you don't have permission for that."];
     case "ls":
-      return ["about  skills  projects  experience  socials  apps/messenger"];
+      return ["about  skills  projects  experience  socials  messenger/  lumen/"];
     case "cat":
       return args.length ? [`cat: ${args[0]}: permission denied (it's a secret)`] : ["usage: cat <file>"];
     case "exit":

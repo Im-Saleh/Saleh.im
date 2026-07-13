@@ -126,7 +126,7 @@ export function Hero() {
               {isFa ? (
                 <>
                   <span className="fa-accent block">صالح</span>
-                  <span className="block">ثقفیانی</span>
+                  <span className="fa-accent block accent-text">ثقفیانی</span>
                 </>
               ) : (
                 <>
