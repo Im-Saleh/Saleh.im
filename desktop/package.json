@@ -1,8 +1,8 @@
 {
   "name": "saleh-vault-desktop",
   "productName": "Vault",
-  "version": "1.0.0",
-  "description": "Zero-knowledge, eight-layer encrypted password vault by Saleh — installable on Ubuntu / Kubuntu.",
+  "version": "1.1.0",
+  "description": "Zero-knowledge, eight-layer encrypted password vault by Saleh — a hardened native app for Ubuntu / Kubuntu with tray, global hotkeys, auto-lock and clipboard wipe.",
   "author": "Saleh Saghafiani <salehcodez@gmail.com>",
   "license": "MIT",
   "homepage": "https://saleh.im/vault",
@@ -39,11 +39,12 @@
         { "target": "AppImage", "arch": ["x64"] }
       ],
       "category": "Utility",
+      "executableName": "saleh-vault",
       "maintainer": "Saleh Saghafiani <salehcodez@gmail.com>",
       "vendor": "Saleh Saghafiani",
       "icon": "build/icon.png",
       "synopsis": "Zero-knowledge encrypted password vault",
-      "description": "A local-first, zero-knowledge password manager protected by an eight-layer encryption cascade (PBKDF2 + HKDF + AES-256-GCM/CTR/CBC + HMAC), with an optional keyfile second factor, a built-in RFC-6238 authenticator, a strong generator and an offline security audit. Your master password never leaves the device.",
+      "description": "A local-first, zero-knowledge password manager protected by an eight-layer encryption cascade (PBKDF2 + HKDF + AES-256-GCM/CTR/CBC + HMAC), with an optional keyfile second factor and a built-in RFC-6238 authenticator. The native app adds a system tray, global lock hotkey, auto-lock on suspend/idle, clipboard wipe and screenshot protection. Your master password never leaves the device.",
       "desktop": {
         "entry": {
           "Name": "Vault",
