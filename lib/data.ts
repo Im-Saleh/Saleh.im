@@ -288,10 +288,10 @@ export const projects: Project[] = [
     name: "Vault",
     title: { en: "Vault — Zero-Knowledge Manager", fa: "والت — مدیرِ رازِ بدونِ دانش" },
     description: {
-      en: "A zero-knowledge secret manager with an eight-layer encryption cascade (PBKDF2 → HKDF → AES-GCM/CTR/CBC → HMAC), a built-in RFC-6238 authenticator, a cryptographic generator and an offline security audit. Installs as a PWA and works fully offline — the master password never leaves the device and nothing but ciphertext is ever stored.",
-      fa: "یک مدیرِ رازِ بدونِ دانش با آبشارِ رمزنگاریِ هشت‌لایه (PBKDF2 ← HKDF ← AES-GCM/CTR/CBC ← HMAC)، احرازگرِ داخلیِ RFC-6238، سازنده‌ی رمزِ رمزنگارانه و ممیزیِ امنیتیِ آفلاین. به‌صورتِ PWA نصب می‌شود و کاملاً آفلاین کار می‌کند — رمزِ اصلی هیچ‌وقت دستگاه را ترک نمی‌کند و جز متنِ رمزشده چیزی ذخیره نمی‌شود.",
+      en: "A zero-knowledge secret manager — as a native C++ Linux app (Qt6 + libsodium) with Argon2id + XChaCha20-Poly1305, an optional keyfile, a system tray, auto-lock and clipboard wipe, plus a browser version. RFC-6238 authenticator, cryptographic generator and offline security audit. The master password never leaves the device.",
+      fa: "یک مدیرِ رازِ بدونِ دانش — به‌صورتِ اپِ بومیِ لینوکس با ++C (Qt6 و libsodium)، با Argon2id و XChaCha20-Poly1305، کلیدفایلِ اختیاری، سینی سیستم، قفلِ خودکار و پاک‌سازیِ کلیپ‌بورد؛ به‌همراهِ نسخه‌ی مرورگری. احرازگرِ RFC-6238، سازنده‌ی رمز و ممیزیِ امنیتیِ آفلاین. رمزِ اصلی هیچ‌وقت دستگاه را ترک نمی‌کند.",
     },
-    tags: ["WebCrypto", "AES-256", "PWA", "TOTP", "E2E"],
+    tags: ["C++ / Qt6", "libsodium", "Argon2id", "TOTP", "Linux"],
     href: `${BASE_PATH}/vault/`,
     year: "2026",
     featured: true,
