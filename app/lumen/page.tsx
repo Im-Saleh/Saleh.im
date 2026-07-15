@@ -6,6 +6,18 @@ import { useLang } from "@/components/lang-provider";
 import { useThemeScene } from "@/components/theme-provider";
 import { LangToggle } from "@/components/lang-toggle";
 import { Logo } from "@/components/logo";
+import { Reveal } from "@/components/reveal";
+import {
+  analyzeSeries,
+  marketBreadth,
+  correlation,
+  signalColor,
+  signalLabelText,
+  sma,
+  ema,
+  type SeriesAnalysis,
+  type Breadth,
+} from "@/lib/lumen/analytics";
 
 /* ============================================================================
    Lumen — a real-time markets dashboard powered by the public CoinGecko API.
@@ -24,8 +36,9 @@ type Coin = {
 };
 type Global = { cap: number; vol: number; btcDom: number; ethDom: number; coins: number; capChange: number };
 type Trend = { id: string; name: string; symbol: string; thumb: string; rank: number };
-type Currency = "usd" | "eur" | "gbp" | "jpy";
-const CUR_SYMBOL: Record<Currency, string> = { usd: "$", eur: "€", gbp: "£", jpy: "¥" };
+type Currency = "usd" | "eur" | "gbp" | "jpy" | "aed" | "try" | "cny" | "inr";
+const CUR_SYMBOL: Record<Currency, string> = { usd: "$", eur: "€", gbp: "£", jpy: "¥", aed: "د.إ", try: "₺", cny: "¥", inr: "₹" };
+const CURRENCIES: Currency[] = ["usd", "eur", "gbp", "jpy", "aed", "try", "cny", "inr"];
 
 const FALLBACK: Coin[] = [
   { id: "bitcoin", symbol: "btc", name: "Bitcoin", price: 68432, change24h: 1.8, change7d: 4.2, marketCap: 1.35e12, volume: 3.2e10, rank: 1, spark: [] },
@@ -78,15 +91,29 @@ function Sparkline({ data, up }: { data: number[]; up: boolean }) {
   );
 }
 
-function AreaChart({ data, up, height = "16rem" }: { data: number[]; up: boolean; height?: string }) {
+type Overlay = { data: number[]; color: string; dash?: boolean };
+function AreaChart({ data, up, height = "16rem", overlays = [] }: { data: number[]; up: boolean; height?: string; overlays?: Overlay[] }) {
   const [hover, setHover] = useState<number | null>(null);
-  const { line, fill, pts } = useMemo(() => {
-    if (data.length < 2) return { line: "", fill: "", pts: [] as number[][] };
+  const { line, fill, pts, min, range } = useMemo(() => {
+    if (data.length < 2) return { line: "", fill: "", pts: [] as number[][], min: 0, range: 1 };
     const max = Math.max(...data), min = Math.min(...data), range = max - min || 1;
     const pts = data.map((v, i) => [(i / (data.length - 1)) * 100, 100 - ((v - min) / range) * 86 - 7]);
     const line = pts.map((p, i) => `${i ? "L" : "M"}${p[0].toFixed(2)},${p[1].toFixed(2)}`).join(" ");
-    return { line, fill: `${line} L100,100 L0,100 Z`, pts };
+    return { line, fill: `${line} L100,100 L0,100 Z`, pts, min, range };
   }, [data]);
+  // map overlay series onto the same vertical scale, right-aligned to the latest point
+  const overlayPaths = useMemo(() => {
+    if (data.length < 2) return [] as { d: string; color: string; dash?: boolean }[];
+    return overlays
+      .filter((o) => o.data.length > 1)
+      .map((o) => {
+        const offset = data.length - o.data.length;
+        const d = o.data
+          .map((v, i) => `${i ? "L" : "M"}${(((offset + i) / (data.length - 1)) * 100).toFixed(2)},${(100 - ((v - min) / range) * 86 - 7).toFixed(2)}`)
+          .join(" ");
+        return { d, color: o.color, dash: o.dash };
+      });
+  }, [overlays, data.length, min, range]);
   const col = up ? "#22c55e" : "#ef4444";
   const dot = pts[hover ?? pts.length - 1];
   return (
@@ -96,6 +123,9 @@ function AreaChart({ data, up, height = "16rem" }: { data: number[]; up: boolean
         {[25, 50, 75].map((y) => <line key={y} x1="0" y1={y} x2="100" y2={y} stroke="var(--line)" strokeWidth="0.4" vectorEffect="non-scaling-stroke" />)}
         <path d={fill} fill="url(#lg)" style={{ transition: "d .6s ease" }} />
         <path d={line} fill="none" stroke={col} strokeWidth="2" vectorEffect="non-scaling-stroke" strokeLinecap="round" strokeLinejoin="round" style={{ transition: "d .6s ease" }} />
+        {overlayPaths.map((o, i) => (
+          <path key={i} d={o.d} fill="none" stroke={o.color} strokeWidth="1.3" vectorEffect="non-scaling-stroke" strokeLinecap="round" strokeLinejoin="round" strokeDasharray={o.dash ? "3 2" : undefined} opacity="0.85" />
+        ))}
         {dot && <circle cx={dot[0]} cy={dot[1]} r="1.8" fill={col} vectorEffect="non-scaling-stroke" />}
         {dot && hover != null && <line x1={dot[0]} y1="0" x2={dot[0]} y2="100" stroke="var(--line-2)" strokeWidth="0.5" vectorEffect="non-scaling-stroke" strokeDasharray="2 2" />}
       </svg>
@@ -166,8 +196,28 @@ export default function LumenPage() {
   const [sortDir, setSortDir] = useState<1 | -1>(1);
   const [watch, setWatch] = useState<string[]>([]);
   const [tab, setTab] = useState<"all" | "watch" | "gainers" | "losers">("all");
+  const [scrollPct, setScrollPct] = useState(0);
+  const [convAmt, setConvAmt] = useState("1");
+  const [convCoin, setConvCoin] = useState("bitcoin");
+  const [convDir, setConvDir] = useState<"toFiat" | "toCoin">("toFiat");
   const liveRef = useRef(true);
   useEffect(() => { liveRef.current = live; }, [live]);
+
+  useEffect(() => {
+    let raf = 0;
+    const onScroll = () => {
+      if (raf) return;
+      raf = requestAnimationFrame(() => {
+        const h = document.documentElement;
+        const max = h.scrollHeight - h.clientHeight;
+        setScrollPct(max > 0 ? (h.scrollTop / max) * 100 : 0);
+        raf = 0;
+      });
+    };
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   useEffect(() => { try { const w = localStorage.getItem("lumen:watch"); if (w) setWatch(JSON.parse(w)); } catch {} }, []);
   const toggleWatch = (id: string) => setWatch((w) => { const n = w.includes(id) ? w.filter((x) => x !== id) : [...w, id]; try { localStorage.setItem("lumen:watch", JSON.stringify(n)); } catch {} return n; });
@@ -182,6 +232,7 @@ export default function LumenPage() {
     return `${s}${sym}${a.toFixed(a < 0.01 ? 6 : 4)}`;
   }, [sym]);
   const pct = (n: number) => `${n >= 0 ? "+" : ""}${n.toFixed(2)}%`;
+  const num = (n: number) => (fa ? n.toLocaleString("fa-IR") : String(n));
 
   const fetchData = useCallback(async () => {
     try {
@@ -234,6 +285,24 @@ export default function LumenPage() {
   const sel = coins.find((c) => c.id === selected) || coins[0];
   const sentiment = useMemo(() => { const avg = coins.reduce((s, c) => s + c.change24h, 0) / (coins.length || 1); return Math.max(0, Math.min(100, Math.round(50 + avg * 6))); }, [coins]);
 
+  /* ---- analytics ---- */
+  const breadth: Breadth = useMemo(() => marketBreadth(coins.map((c) => c.change24h)), [coins]);
+  const btcSpark = useMemo(() => coins.find((c) => c.id === "bitcoin")?.spark ?? [], [coins]);
+  const volLeaders = useMemo(
+    () => [...coins].map((c) => ({ c, an: analyzeSeries(c.spark) })).filter((x) => x.an).sort((a, b) => (b.an!.volatility) - (a.an!.volatility)).slice(0, 5),
+    [coins]
+  );
+  const heatCells = useMemo(() => [...coins].sort((a, b) => b.marketCap - a.marketCap).slice(0, 24), [coins]);
+  const screener = useMemo(() => coins.slice(0, 12).map((c) => ({ c, an: analyzeSeries(c.spark) })).filter((x) => x.an), [coins]);
+  const corrCoins = useMemo(() => coins.slice(0, 6), [coins]);
+  const corrMatrix = useMemo(() => corrCoins.map((a) => corrCoins.map((b) => (a.id === b.id ? 1 : correlation(a.spark, b.spark)))), [corrCoins]);
+  const convPrice = coins.find((c) => c.id === convCoin)?.price || 0;
+  const convSym = coins.find((c) => c.id === convCoin)?.symbol?.toUpperCase() || "";
+  const convAmtNum = parseFloat(convAmt) || 0;
+  const convResult = convDir === "toFiat" ? convAmtNum * convPrice : convPrice ? convAmtNum / convPrice : 0;
+  const detailAnalysis = useMemo<SeriesAnalysis | null>(() => (detail?.prices && detail.prices.length > 4 ? analyzeSeries(detail.prices) : null), [detail?.prices]);
+  const detailCorr = useMemo(() => (detail?.prices && detail.prices.length && btcSpark.length ? correlation(detail.prices, btcSpark) : 0), [detail?.prices, btcSpark]);
+
   const filtered = useMemo(() => {
     let list = coins;
     if (tab === "watch") list = list.filter((c) => watch.includes(c.id));
@@ -245,8 +314,8 @@ export default function LumenPage() {
   }, [coins, tab, watch, query, sortKey, sortDir]);
 
   const T = fa
-    ? { title: "Lumen", sub: "داشبورد بازار زنده", live: "زنده", paused: "متوقف", cap: "ارزش کل بازار", vol: "حجم ۲۴ساعته", btc: "سلطه‌ی BTC", coins: "ارزهای فعال", chart: "نمودار", movers: "بیشترین تغییر", markets: "بازار", sentiment: "احساسِ بازار", dom: "سلطه‌ی بازار", updated: "به‌روزرسانی", refresh: "تازه‌سازی", others: "سایر", trending: "پرطرفدارها", watch: "واچ‌لیست", all: "همه", gainers: "صعودی", losers: "نزولی", search: "جستجوی ارز…", name: "نام", price: "قیمت", h24: "۲۴س", mcap: "ارزش بازار", volc: "حجم", rankc: "#", real: "داده‌ی واقعی و زنده از CoinGecko", offline: "API موقتاً در دسترس نیست — نمایشِ نمونه.", close: "بستن", rank: "رتبه", ath: "بالاترین تاریخ", supply: "عرضه در گردش", high: "بیشترین ۲۴س", low: "کمترین ۲۴س", fearg: ["ترس شدید", "ترس", "خنثی", "طمع", "طمع شدید"], noWatch: "ارزی به واچ‌لیست اضافه نکرده‌ای — روی ★ بزن." }
-    : { title: "Lumen", sub: "Live markets dashboard", live: "Live", paused: "Paused", cap: "Total market cap", vol: "24h volume", btc: "BTC dominance", coins: "Active coins", chart: "Chart", movers: "Top movers", markets: "Markets", sentiment: "Market sentiment", dom: "Market dominance", updated: "Updated", refresh: "Refresh", others: "Others", trending: "Trending", watch: "Watchlist", all: "All", gainers: "Gainers", losers: "Losers", search: "Search coin…", name: "Name", price: "Price", h24: "24h", mcap: "Market cap", volc: "Volume", rankc: "#", real: "Real, live data from CoinGecko", offline: "API temporarily unavailable — sample data.", close: "Close", rank: "Rank", ath: "All-time high", supply: "Circulating supply", high: "24h high", low: "24h low", fearg: ["Extreme fear", "Fear", "Neutral", "Greed", "Extreme greed"], noWatch: "No coins in your watchlist yet — tap ★." };
+    ? { title: "Lumen", sub: "داشبورد بازار زنده", live: "زنده", paused: "متوقف", cap: "ارزش کل بازار", vol: "حجم ۲۴ساعته", btc: "سلطه‌ی BTC", coins: "ارزهای فعال", chart: "نمودار", movers: "بیشترین تغییر", markets: "بازار", sentiment: "احساسِ بازار", dom: "سلطه‌ی بازار", updated: "به‌روزرسانی", refresh: "تازه‌سازی", others: "سایر", trending: "پرطرفدارها", watch: "واچ‌لیست", all: "همه", gainers: "صعودی", losers: "نزولی", search: "جستجوی ارز…", name: "نام", price: "قیمت", h24: "۲۴س", mcap: "ارزش بازار", volc: "حجم", rankc: "#", real: "داده‌ی واقعی و زنده از CoinGecko", offline: "API موقتاً در دسترس نیست — نمایشِ نمونه.", close: "بستن", rank: "رتبه", ath: "بالاترین تاریخ", supply: "عرضه در گردش", high: "بیشترین ۲۴س", low: "کمترین ۲۴س", fearg: ["ترس شدید", "ترس", "خنثی", "طمع", "طمع شدید"], noWatch: "ارزی به واچ‌لیست اضافه نکرده‌ای — روی ★ بزن.", analytics: "تحلیلِ تکنیکال", breadth: "پهنای بازار", adv: "صعودی", dec: "نزولی", heatmap: "نقشه‌ی حرارتی", momentum: "مومنتوم", trendL: "روند", drawdown: "افتِ حداکثری", sharpe: "نسبتِ شارپ", support: "حمایت", resistance: "مقاومت", signalL: "سیگنال", corrBtc: "همبستگی با BTC", volLeaders: "پرنوسان‌ترین‌ها", overbought: "اشباعِ خرید", oversold: "اشباعِ فروش", flat: "خنثی", indicators: "اندیکاتورها", avgChange: "میانگینِ تغییر", volatility: "نوسان", scrollHint: "برای تحلیلِ عمیق‌تر اسکرول کن", corrMatrix: "ماتریسِ همبستگی", screener: "پایشگرِ سیگنال", convert: "مبدلِ زنده", amount: "مقدار", result: "نتیجه" }
+    : { title: "Lumen", sub: "Live markets dashboard", live: "Live", paused: "Paused", cap: "Total market cap", vol: "24h volume", btc: "BTC dominance", coins: "Active coins", chart: "Chart", movers: "Top movers", markets: "Markets", sentiment: "Market sentiment", dom: "Market dominance", updated: "Updated", refresh: "Refresh", others: "Others", trending: "Trending", watch: "Watchlist", all: "All", gainers: "Gainers", losers: "Losers", search: "Search coin…", name: "Name", price: "Price", h24: "24h", mcap: "Market cap", volc: "Volume", rankc: "#", real: "Real, live data from CoinGecko", offline: "API temporarily unavailable — sample data.", close: "Close", rank: "Rank", ath: "All-time high", supply: "Circulating supply", high: "24h high", low: "24h low", fearg: ["Extreme fear", "Fear", "Neutral", "Greed", "Extreme greed"], noWatch: "No coins in your watchlist yet — tap ★.", analytics: "Technical analysis", breadth: "Market breadth", adv: "Advancers", dec: "Decliners", heatmap: "Heatmap", momentum: "Momentum", trendL: "Trend", drawdown: "Max drawdown", sharpe: "Sharpe ratio", support: "Support", resistance: "Resistance", signalL: "Signal", corrBtc: "Correlation to BTC", volLeaders: "Volatility leaders", overbought: "Overbought", oversold: "Oversold", flat: "Flat", indicators: "Indicators", avgChange: "Avg change", volatility: "Volatility", scrollHint: "Scroll for deeper analytics", corrMatrix: "Correlation matrix", screener: "Signal screener", convert: "Live converter", amount: "Amount", result: "Result" };
 
   const senLabel = T.fearg[Math.min(4, Math.floor(sentiment / 20))];
   const Th = ({ k, label, cls = "" }: { k: typeof sortKey; label: string; cls?: string }) => (
@@ -257,6 +326,7 @@ export default function LumenPage() {
 
   return (
     <div className="min-h-[100dvh]">
+      <div className="fixed inset-x-0 top-0 z-50 h-0.5" style={{ width: `${scrollPct}%`, background: "var(--accent)", boxShadow: "0 0 10px var(--glow)", transition: "width .12s linear" }} aria-hidden />
       <header className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b px-4 py-3 backdrop-blur-xl sm:px-6" style={{ borderColor: "var(--line)", background: "color-mix(in srgb, var(--bg) 80%, transparent)" }}>
         <div className="flex items-center gap-3">
           <Link href="/" className="mono text-sm text-[var(--fg-2)] hover:text-[var(--fg)]">← saleh.im</Link>
@@ -264,7 +334,7 @@ export default function LumenPage() {
         </div>
         <div className="flex items-center gap-2">
           <select value={cur} onChange={(e) => setCur(e.target.value as Currency)} className="rounded-full border bg-transparent px-2.5 py-1.5 text-xs outline-none force-ltr" style={{ borderColor: "var(--line-2)" }}>
-            {(["usd", "eur", "gbp", "jpy"] as Currency[]).map((c) => <option key={c} value={c} style={{ background: "var(--bg-2)" }}>{c.toUpperCase()}</option>)}
+            {CURRENCIES.map((c) => <option key={c} value={c} style={{ background: "var(--bg-2)" }}>{c.toUpperCase()}</option>)}
           </select>
           <button onClick={() => setLive((l) => !l)} className="flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs" style={{ borderColor: "var(--line-2)" }}>
             <span className="relative flex h-2 w-2">{live && <span className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-70" style={{ background: "#22c55e" }} />}<span className="relative inline-flex h-2 w-2 rounded-full" style={{ background: live ? "#22c55e" : "#71717a" }} /></span>{live ? T.live : T.paused}
@@ -333,15 +403,161 @@ export default function LumenPage() {
           </div>
         </div>
 
+        {/* market analytics — breadth, heatmap, volatility leaders */}
+        <Reveal>
+          <div className="panel elev mt-4 p-5">
+            <p className="label mb-4">{T.analytics}</p>
+            <div className="grid gap-6 lg:grid-cols-2">
+              <div>
+                <div className="mb-2 flex items-center justify-between text-sm">
+                  <span className="mono" style={{ color: "#22c55e" }}>▲ {num(breadth.advancers)} {T.adv}</span>
+                  <span className="text-xs text-[var(--fg-2)]">{T.avgChange}: <span style={{ color: breadth.avgChange >= 0 ? "#22c55e" : "#ef4444" }}>{pct(breadth.avgChange)}</span></span>
+                  <span className="mono" style={{ color: "#ef4444" }}>{num(breadth.decliners)} {T.dec} ▼</span>
+                </div>
+                <div className="flex h-3 overflow-hidden rounded-full" style={{ background: "var(--bg-3)" }}>
+                  <div style={{ width: `${breadth.breadthPct}%`, background: "linear-gradient(90deg,#16a34a,#22c55e)", transition: "width .7s cubic-bezier(.22,1,.36,1)" }} />
+                  <div style={{ flex: 1, background: "linear-gradient(90deg,#ef4444,#f97316)" }} />
+                </div>
+                <p className="label mb-2 mt-5">{T.volLeaders}</p>
+                <div className="space-y-1">
+                  {volLeaders.map(({ c, an }) => (
+                    <button key={c.id} onClick={() => loadDetail(c.id)} className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-sm transition-colors hover:bg-[var(--bg-3)]">
+                      <span className="inline-flex items-center gap-2">{c.image && <img src={c.image} alt="" className="h-4 w-4 rounded-full" />}<b className="uppercase force-ltr">{c.symbol}</b></span>
+                      <span className="mono text-xs text-[var(--fg-2)] force-ltr">σ {an!.volatility}%</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <p className="label mb-2">{T.heatmap}</p>
+                <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-6">
+                  {heatCells.map((c, i) => {
+                    const intensity = Math.min(1, Math.abs(c.change24h) / 8);
+                    const col = c.change24h >= 0 ? `rgba(34,197,94,${0.14 + intensity * 0.62})` : `rgba(239,68,68,${0.14 + intensity * 0.62})`;
+                    return (
+                      <button
+                        key={c.id}
+                        onClick={() => loadDetail(c.id)}
+                        className="rounded-lg p-2 text-center transition-transform hover:scale-[1.08]"
+                        style={{ background: col, animation: "popIn .4s cubic-bezier(.22,1,.36,1) both", animationDelay: `${i * 15}ms` }}
+                        title={c.name}
+                      >
+                        <div className="text-[10px] font-bold uppercase leading-tight force-ltr" style={{ color: "var(--fg)" }}>{c.symbol}</div>
+                        <div className="mono text-[9px] force-ltr" style={{ color: "var(--fg)" }}>{c.change24h >= 0 ? "+" : ""}{c.change24h.toFixed(1)}</div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+        </Reveal>
+
+        {/* signal screener */}
+        {screener.length > 0 && (
+          <Reveal>
+            <div className="panel elev mt-4 p-5">
+              <p className="label mb-4">{T.screener}</p>
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {screener.map(({ c, an }, i) => (
+                  <button
+                    key={c.id}
+                    onClick={() => loadDetail(c.id)}
+                    className="flex items-center justify-between gap-3 rounded-xl border p-3 text-start transition-colors hover:bg-[var(--bg-3)]"
+                    style={{ borderColor: "var(--line)", animation: "popIn .45s cubic-bezier(.22,1,.36,1) both", animationDelay: `${i * 25}ms` }}
+                  >
+                    <span className="inline-flex min-w-0 items-center gap-2">
+                      {c.image && <img src={c.image} className="h-6 w-6 rounded-full" alt="" />}
+                      <span className="min-w-0">
+                        <b className="block truncate text-sm">{c.name}</b>
+                        <span className="mono text-[10px] text-[var(--fg-2)] force-ltr">RSI {an!.rsi} · {an!.trend.direction === "up" ? "↗" : an!.trend.direction === "down" ? "↘" : "→"} · σ {an!.volatility}%</span>
+                      </span>
+                    </span>
+                    <span className="shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium force-ltr" style={{ background: `color-mix(in srgb, ${signalColor(an!.signal.label)} 16%, transparent)`, color: signalColor(an!.signal.label) }}>
+                      {signalLabelText(an!.signal.label, fa)}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </Reveal>
+        )}
+
+        {/* correlation matrix */}
+        {corrCoins.length > 1 && (
+          <Reveal>
+            <div className="panel elev mt-4 p-5">
+              <p className="label mb-4">{T.corrMatrix}</p>
+              <div className="overflow-x-auto thin-scroll">
+                <table className="w-full min-w-[24rem] text-center text-xs">
+                  <thead>
+                    <tr>
+                      <th className="p-1" />
+                      {corrCoins.map((c) => (
+                        <th key={c.id} className="p-1 uppercase text-[var(--fg-2)] force-ltr">{c.symbol}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {corrCoins.map((a, i) => (
+                      <tr key={a.id}>
+                        <td className="p-1 text-start uppercase text-[var(--fg-2)] force-ltr">{a.symbol}</td>
+                        {corrMatrix[i].map((v, j) => {
+                          const int = Math.min(1, Math.abs(v));
+                          const col = v >= 0 ? `rgba(34,197,94,${int * 0.65})` : `rgba(239,68,68,${int * 0.65})`;
+                          return (
+                            <td key={j} className="p-0.5">
+                              <span className="mono block rounded py-1.5 force-ltr" style={{ background: col, color: "var(--fg)" }}>{v.toFixed(2)}</span>
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </Reveal>
+        )}
+
+        {/* live converter */}
+        <Reveal>
+          <div className="panel elev mt-4 p-5">
+            <p className="label mb-4">{T.convert}</p>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+              <label className="flex-1">
+                <span className="label mb-1 block">{T.amount} {convDir === "toCoin" ? `(${sym})` : ""}</span>
+                <input value={convAmt} onChange={(e) => setConvAmt(e.target.value)} inputMode="decimal" className="w-full rounded-xl border bg-transparent px-3 py-2.5 text-sm outline-none focus:border-[var(--accent)] force-ltr" style={{ borderColor: "var(--line-2)", background: "var(--bg-3)" }} />
+              </label>
+              <select value={convCoin} onChange={(e) => setConvCoin(e.target.value)} className="rounded-xl border bg-transparent px-3 py-2.5 text-sm outline-none" style={{ borderColor: "var(--line-2)", background: "var(--bg-3)" }}>
+                {coins.slice(0, 15).map((c) => <option key={c.id} value={c.id} style={{ background: "var(--bg-2)" }}>{c.name}</option>)}
+              </select>
+              <button onClick={() => setConvDir((d) => (d === "toFiat" ? "toCoin" : "toFiat"))} className="btn btn-outline px-4 py-2.5" title="swap">⇄</button>
+            </div>
+            <div className="mt-4 rounded-xl border p-4 text-center" style={{ borderColor: "var(--line)", background: "var(--bg-3)" }}>
+              <p className="label mb-1">{T.result}</p>
+              <p className="font-display text-2xl force-ltr">
+                {convDir === "toFiat" ? money(convResult) : `${convResult.toLocaleString(undefined, { maximumFractionDigits: 8 })} ${convSym}`}
+              </p>
+              <p className="mono mt-1 text-xs text-[var(--fg-2)] force-ltr">
+                {convDir === "toFiat" ? `${convAmt} ${convSym} → ${sym}` : `${convAmt} ${sym} → ${convSym}`} · 1 {convSym} = {money(convPrice)}
+              </p>
+            </div>
+          </div>
+        </Reveal>
+
         {/* trending */}
         {trending.length > 0 && (
+          <Reveal>
           <div className="panel elev mt-4 p-5">
             <p className="label mb-3">🔥 {T.trending}</p>
             <div className="flex flex-wrap gap-2">{trending.map((t) => <button key={t.id} onClick={() => loadDetail(t.id)} className="flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition-colors hover:bg-[var(--bg-3)]" style={{ borderColor: "var(--line-2)" }}><img src={t.thumb} alt="" className="h-4 w-4 rounded-full" /><span className="force-ltr">{t.name}</span><span className="uppercase text-[var(--fg-2)] force-ltr">{t.symbol}</span></button>)}</div>
           </div>
+          </Reveal>
         )}
 
         {/* markets table */}
+        <Reveal>
         <div className="panel elev mt-4 p-5">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap gap-1">{(["all", "watch", "gainers", "losers"] as const).map((tb) => <button key={tb} onClick={() => setTab(tb)} className="rounded-full px-3 py-1.5 text-sm transition-colors" style={{ background: tab === tb ? "var(--accent)" : "transparent", color: tab === tb ? "var(--on-accent)" : "var(--fg-2)", border: "1px solid var(--line-2)" }}>{T[tb]}</button>)}</div>
@@ -378,6 +594,7 @@ export default function LumenPage() {
             </div>
           )}
         </div>
+        </Reveal>
 
         <p className="mt-6 flex items-center justify-center gap-2 text-center text-xs text-[var(--fg-2)]"><span className="h-1.5 w-1.5 rounded-full" style={{ background: usingLive ? "#22c55e" : "#eab308" }} />{usingLive ? T.real : T.offline}</p>
       </main>
@@ -399,13 +616,61 @@ export default function LumenPage() {
                     <p className="font-display text-4xl force-ltr">{c ? money(c.price) : "…"}<span className="ms-2 text-base" style={{ color: up ? "#22c55e" : "#ef4444" }}>{c ? pct(c.change24h) : ""}</span></p>
                     <div className="flex gap-1">{([1, 7, 30, 90] as const).map((r) => <button key={r} onClick={() => setRange(r)} className="mono rounded-full px-2.5 py-1 text-xs" style={{ background: range === r ? "var(--accent)" : "transparent", color: range === r ? "var(--on-accent)" : "var(--fg-2)", border: "1px solid var(--line-2)" }}>{r}d</button>)}</div>
                   </div>
-                  <div className="mt-4 h-52">{detail.prices.length > 1 ? <AreaChart data={detail.prices} up={detail.prices[detail.prices.length - 1] >= detail.prices[0]} height="13rem" /> : <div className="grid h-full place-items-center text-sm text-[var(--fg-2)]">…</div>}</div>
+                  <div className="mt-2 flex items-center gap-3 text-[11px] text-[var(--fg-2)]">
+                    <span className="inline-flex items-center gap-1.5"><span className="h-0.5 w-4" style={{ background: "var(--accent)" }} /> SMA 20</span>
+                    <span className="inline-flex items-center gap-1.5"><span className="h-0.5 w-4" style={{ background: "var(--accent-2)", borderTop: "1px dashed var(--accent-2)" }} /> EMA 12</span>
+                  </div>
+                  <div className="mt-2 h-52">{detail.prices.length > 1 ? <AreaChart data={detail.prices} up={detail.prices[detail.prices.length - 1] >= detail.prices[0]} height="13rem" overlays={[{ data: sma(detail.prices, 20), color: "var(--accent)" }, { data: ema(detail.prices, 12), color: "var(--accent-2)", dash: true }]} /> : <div className="grid h-full place-items-center text-sm text-[var(--fg-2)]">…</div>}</div>
                   {detail.ohlc.length > 0 && <div className="mt-4 h-40"><p className="label mb-2">OHLC</p><Candles ohlc={detail.ohlc} /></div>}
                   <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
                     {[[T.mcap, c ? money(c.marketCap) : "—"], [T.volc, c ? money(c.volume) : "—"], [T.rank, c?.rank ? `#${c.rank}` : "—"], [T.ath, c?.ath ? money(c.ath) : "—"], [T.high, c?.high24 ? money(c.high24) : "—"], [T.low, c?.low24 ? money(c.low24) : "—"]].map(([l, v]) => (
                       <div key={l as string} className="rounded-xl border px-3 py-2.5" style={{ borderColor: "var(--line)", background: "var(--bg-3)" }}><p className="label mb-1">{l}</p><p className="text-sm font-medium force-ltr">{v}</p></div>
                     ))}
                   </div>
+
+                  {/* technical analysis */}
+                  {detailAnalysis && (
+                    <div className="mt-5">
+                      <div className="mb-3 flex items-center justify-between">
+                        <p className="label">{T.analytics} · {T.indicators}</p>
+                        <span className="rounded-full px-3 py-1 text-xs font-medium force-ltr" style={{ background: `color-mix(in srgb, ${signalColor(detailAnalysis.signal.label)} 18%, transparent)`, color: signalColor(detailAnalysis.signal.label) }}>
+                          {signalLabelText(detailAnalysis.signal.label, fa)} · {detailAnalysis.signal.score > 0 ? "+" : ""}{detailAnalysis.signal.score}
+                        </span>
+                      </div>
+                      <div className="mb-4">
+                        <div className="mb-1 flex items-center justify-between text-xs">
+                          <span className="label">RSI (14)</span>
+                          <span className="mono force-ltr" style={{ color: detailAnalysis.rsi >= 70 ? "#ef4444" : detailAnalysis.rsi <= 30 ? "#22c55e" : "var(--fg-2)" }}>
+                            {detailAnalysis.rsi}{detailAnalysis.rsi >= 70 ? ` · ${T.overbought}` : detailAnalysis.rsi <= 30 ? ` · ${T.oversold}` : ""}
+                          </span>
+                        </div>
+                        <div className="relative h-2 rounded-full" style={{ background: "linear-gradient(90deg, rgba(34,197,94,.35), var(--bg-3) 30%, var(--bg-3) 70%, rgba(239,68,68,.35))" }}>
+                          <div className="absolute top-1/2 h-3.5 w-3.5 -translate-y-1/2 rounded-full" style={{ left: `calc(${detailAnalysis.rsi}% - 7px)`, background: "var(--fg)", boxShadow: "0 0 8px var(--glow)", transition: "left .5s ease" }} />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                        {(
+                          [
+                            [T.momentum, `${detailAnalysis.momentum >= 0 ? "+" : ""}${detailAnalysis.momentum}%`, detailAnalysis.momentum >= 0 ? "#22c55e" : "#ef4444"],
+                            [T.volatility, `${detailAnalysis.volatility}%`, undefined],
+                            [T.trendL, detailAnalysis.trend.direction === "up" ? "↗" : detailAnalysis.trend.direction === "down" ? "↘" : "→", detailAnalysis.trend.direction === "up" ? "#22c55e" : detailAnalysis.trend.direction === "down" ? "#ef4444" : undefined],
+                            ["MACD", `${detailAnalysis.macd.hist}`, detailAnalysis.macd.hist >= 0 ? "#22c55e" : "#ef4444"],
+                            ["Boll %B", `${detailAnalysis.bollinger.percentB}%`, undefined],
+                            [T.drawdown, `-${detailAnalysis.drawdown}%`, "#ef4444"],
+                            [T.sharpe, `${detailAnalysis.sharpe}`, undefined],
+                            [T.support, money(detailAnalysis.support), undefined],
+                            [T.resistance, money(detailAnalysis.resistance), undefined],
+                            [T.corrBtc, `${detailCorr}`, undefined],
+                          ] as [string, string, string | undefined][]
+                        ).map(([l, v, col]) => (
+                          <div key={l} className="rounded-xl border px-3 py-2.5" style={{ borderColor: "var(--line)", background: "var(--bg-3)" }}>
+                            <p className="label mb-1 truncate">{l}</p>
+                            <p className="text-sm font-medium force-ltr" style={col ? { color: col } : undefined}>{v}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </>
               );
             })()}
