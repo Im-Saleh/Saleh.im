@@ -69,18 +69,19 @@ function ConnectionChip() {
   );
 }
 
-/* A single seamless marquee row. The base sequence is repeated enough times
-   that one half always exceeds the viewport, so the -50% loop never exposes a
-   gap on wide screens; the row simply re-enters from the opposite edge. */
-function MarqueeRow({ duration, reverse = false, muted = false }: { duration: number; reverse?: boolean; muted?: boolean }) {
+/* A single seamless marquee row that never stops. The base sequence is
+   repeated enough times that one half always exceeds the viewport, so the
+   -50% loop never exposes a gap on wide screens — the row simply re-enters
+   from the opposite edge in one continuous, unbroken motion. */
+function MarqueeRow({ duration = 48 }: { duration?: number }) {
   const base = [...marqueeTags, ...marqueeTags, ...marqueeTags];
   const track = [...base, ...base];
   return (
-    <div className={`marquee ${reverse ? "rev" : ""}`} style={{ animationDuration: `${duration}s` }} aria-hidden>
+    <div className="marquee marquee-hero" style={{ animationDuration: `${duration}s` }} aria-hidden>
       {track.map((m, i) => (
-        <span key={i} className={`mx-5 font-display text-2xl sm:text-3xl text-[var(--fg-2)] ${muted ? "opacity-45" : ""}`}>
-          {m}
-          <span className="accent-text mx-5">✦</span>
+        <span key={i} className="mq-item font-display text-2xl sm:text-3xl">
+          <span className="mq-word">{m}</span>
+          <span className="mq-star">✦</span>
         </span>
       ))}
     </div>
@@ -197,10 +198,9 @@ export function Hero() {
         </div>
       </div>
 
-      {/* marquee — two counter-scrolling rows, seamless on any width */}
-      <div className="edge-fade mt-16 space-y-1 border-y py-4" style={{ borderColor: "var(--line)" }}>
-        <MarqueeRow duration={44} />
-        <MarqueeRow duration={64} reverse muted />
+      {/* marquee — one continuous, never-stopping line */}
+      <div className="edge-fade relative mt-16 border-y py-5" style={{ borderColor: "var(--line)" }}>
+        <MarqueeRow duration={48} />
       </div>
 
       <style jsx>{`

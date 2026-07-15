@@ -5,6 +5,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { LangProvider } from "@/components/lang-provider";
 import { NO_FLASH_SCRIPT } from "@/lib/themes";
 import { NO_FLASH_LANG } from "@/lib/i18n";
+import { PwaRegister } from "@/components/pwa-register";
 
 /* ---- Latin type system ---- */
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans", display: "swap" });
@@ -44,10 +45,24 @@ export const metadata: Metadata = {
     siteName: "saleh.im",
     type: "website",
   },
-  icons: { icon: `${process.env.NEXT_PUBLIC_BASE_PATH || ""}/favicon.svg` },
+  icons: {
+    icon: `${process.env.NEXT_PUBLIC_BASE_PATH || ""}/favicon.svg`,
+    apple: `${process.env.NEXT_PUBLIC_BASE_PATH || ""}/icon.svg`,
+  },
+  manifest: `${process.env.NEXT_PUBLIC_BASE_PATH || ""}/manifest.webmanifest`,
+  appleWebApp: { capable: true, title: "Vault", statusBarStyle: "black-translucent" },
+  applicationName: "Vault — by Saleh",
 };
 
-export const viewport: Viewport = { width: "device-width", initialScale: 1 };
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: [
+    { media: "(prefers-color-scheme: dark)", color: "#0b0c0e" },
+    { media: "(prefers-color-scheme: light)", color: "#f2eee4" },
+  ],
+};
 
 const FA_FONTS = [
   "https://cdn.jsdelivr.net/gh/rastikerdar/shabnam-font@v5.0.1/dist/font-face.css",
@@ -71,6 +86,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <LangProvider>
           <ThemeProvider>{children}</ThemeProvider>
         </LangProvider>
+        <PwaRegister />
       </body>
     </html>
   );

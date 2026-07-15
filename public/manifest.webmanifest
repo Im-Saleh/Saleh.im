@@ -1,0 +1,20 @@
+{
+  "name": "Vault — by Saleh",
+  "short_name": "Vault",
+  "description": "A zero-knowledge, eight-layer encrypted secret manager. Fully offline and local-only — your master password never leaves the device.",
+  "id": "/vault",
+  "start_url": "/vault",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "any",
+  "background_color": "#0b0c0e",
+  "theme_color": "#0b0c0e",
+  "lang": "en",
+  "dir": "ltr",
+  "categories": ["productivity", "utilities", "security"],
+  "icons": [
+    { "src": "/icon.svg", "type": "image/svg+xml", "sizes": "any", "purpose": "any" },
+    { "src": "/icon-maskable.svg", "type": "image/svg+xml", "sizes": "any", "purpose": "maskable" }
+  ]
+}

@@ -286,14 +286,17 @@ export const projects: Project[] = [
   },
   {
     name: "Vault",
-    title: { en: "Vault — Zero-Knowledge Passwords", fa: "والت — پسوردهای بدونِ دانش" },
+    title: { en: "Vault — Zero-Knowledge Manager", fa: "والت — مدیرِ رازِ بدونِ دانش" },
     description: {
-      en: "A zero-knowledge password manager: everything is encrypted client-side with Argon2 + AES-GCM before it ever syncs. The server sees nothing but ciphertext.",
-      fa: "یک مدیرِ رمزِ عبورِ بدونِ دانش: همه‌چیز سمتِ کلاینت با Argon2 و AES-GCM رمزنگاری می‌شود، قبل از هر هم‌گام‌سازی. سرور جز متنِ رمزشده چیزی نمی‌بیند.",
+      en: "A zero-knowledge secret manager with an eight-layer encryption cascade (PBKDF2 → HKDF → AES-GCM/CTR/CBC → HMAC), a built-in RFC-6238 authenticator, a cryptographic generator and an offline security audit. Installs as a PWA and works fully offline — the master password never leaves the device and nothing but ciphertext is ever stored.",
+      fa: "یک مدیرِ رازِ بدونِ دانش با آبشارِ رمزنگاریِ هشت‌لایه (PBKDF2 ← HKDF ← AES-GCM/CTR/CBC ← HMAC)، احرازگرِ داخلیِ RFC-6238، سازنده‌ی رمزِ رمزنگارانه و ممیزیِ امنیتیِ آفلاین. به‌صورتِ PWA نصب می‌شود و کاملاً آفلاین کار می‌کند — رمزِ اصلی هیچ‌وقت دستگاه را ترک نمی‌کند و جز متنِ رمزشده چیزی ذخیره نمی‌شود.",
     },
-    tags: ["WebCrypto", "Argon2", "Security", "Sync"],
-    href: "https://github.com/im-saleh",
-    year: "2025",
+    tags: ["WebCrypto", "AES-256", "PWA", "TOTP", "E2E"],
+    href: `${BASE_PATH}/vault/`,
+    year: "2026",
+    featured: true,
+    internal: true,
+    accent: true,
   },
   {
     name: "Relay",

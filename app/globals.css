@@ -661,9 +661,37 @@ a:hover > .logo-mark,
   .logo-mark circle { animation: none; }
 }
 
-/* Marquee: pause when the visitor hovers a row (desktop nicety) */
-@media (pointer: fine) {
-  .marquee:hover { animation-play-state: paused; }
+/* Hero marquee — one continuous line that never stops (no hover pause).
+   Words carry a subtle stroked look; the star separators glow in the accent
+   and gently twinkle so the strip feels alive while it flows. */
+.marquee-hero .mq-item {
+  display: inline-flex;
+  align-items: center;
+  color: var(--fg-2);
+  transition: color 0.3s ease;
+}
+.marquee-hero .mq-word {
+  padding-inline: 1.15rem;
+}
+.marquee-hero .mq-star {
+  color: var(--accent);
+  font-size: 0.7em;
+  opacity: 0.75;
+  text-shadow: 0 0 12px var(--glow);
+  animation: twinkle 3.2s ease-in-out infinite;
+}
+.marquee-hero .mq-item:nth-child(3n) .mq-word {
+  color: var(--fg);
+}
+.marquee-hero .mq-item:nth-child(4n) .mq-star {
+  animation-delay: -1.6s;
+}
+@keyframes twinkle {
+  0%, 100% { opacity: 0.4; transform: scale(0.9); }
+  50% { opacity: 1; transform: scale(1.15); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .marquee-hero .mq-star { animation: none; }
 }
 
 /* Tabbed panels fade + rise in when the active tab changes */
