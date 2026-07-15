@@ -1,154 +1,105 @@
 #!/usr/bin/env bash
 # =============================================================================
-#  Vault — Linux build script
+#  Vault — native C++ (Qt6 + libsodium) build script for Linux.
 #
-#  Builds the native Vault desktop app into an installable .deb (Ubuntu /
-#  Kubuntu / Debian) and a portable .AppImage, prints SHA-256 checksums, and can
-#  optionally publish the artifacts to GitHub Releases.
+#  Builds the app with CMake and packages an installable .deb (Ubuntu / Kubuntu
+#  / Debian) via CPack. Also runs the crypto self-test.
 #
 #  Usage:
-#     ./build.sh                 # build BOTH .deb and .AppImage (default)
-#     ./build.sh --deb           # only the .deb
-#     ./build.sh --appimage      # only the AppImage
-#     ./build.sh --clean         # wipe dist/ and node_modules first
-#     ./build.sh --install-deps  # try to install missing system libs (apt/dnf)
-#     ./build.sh --release v1.1.0 # build, then upload to a GitHub Release (needs gh)
+#     ./build.sh                 # configure + build + package .deb
+#     ./build.sh --install-deps  # install build dependencies first (apt/dnf)
+#     ./build.sh --run           # build and launch the app (no packaging)
+#     ./build.sh --test          # build & run the crypto self-test
+#     ./build.sh --install       # build then `sudo cmake --install` system-wide
+#     ./build.sh --clean         # remove the build/ directory first
 #
-#  Requirements: Node.js 18+ and npm. Internet on first run (Electron download).
+#  Dependencies (installed by --install-deps):
+#     Ubuntu/Kubuntu: build-essential cmake qt6-base-dev libsodium-dev
+#     Fedora:         gcc-c++ cmake qt6-qtbase-devel libsodium-devel rpm-build
 # =============================================================================
-
 set -Eeuo pipefail
 
-# ---- pretty logging --------------------------------------------------------
-if [ -t 1 ]; then
-  BOLD=$'\033[1m'; DIM=$'\033[2m'; RED=$'\033[31m'; GRN=$'\033[32m'
-  YLW=$'\033[33m'; CYN=$'\033[36m'; RST=$'\033[0m'
-else
-  BOLD=""; DIM=""; RED=""; GRN=""; YLW=""; CYN=""; RST=""
-fi
-log()  { printf '%s\n' "${CYN}${BOLD}▶ ${RST}${BOLD}$*${RST}"; }
-ok()   { printf '%s\n' "${GRN}✔ ${RST}$*"; }
-warn() { printf '%s\n' "${YLW}⚠ ${RST}$*"; }
-die()  { printf '%s\n' "${RED}✗ $*${RST}" >&2; exit 1; }
+if [ -t 1 ]; then B=$'\033[1m'; G=$'\033[32m'; Y=$'\033[33m'; R=$'\033[31m'; C=$'\033[36m'; Z=$'\033[0m'
+else B=""; G=""; Y=""; R=""; C=""; Z=""; fi
+log(){ printf '%s\n' "${C}${B}▶${Z} ${B}$*${Z}"; }
+ok(){ printf '%s\n' "${G}✔${Z} $*"; }
+die(){ printf '%s\n' "${R}✗ $*${Z}" >&2; exit 1; }
 
-# ---- go to the desktop/ folder (this script lives there) -------------------
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
-# ---- parse arguments -------------------------------------------------------
-BUILD_DEB=false
-BUILD_APPIMAGE=false
-DO_CLEAN=false
-INSTALL_DEPS=false
-RELEASE_TAG=""
-REPO="im-saleh/Saleh.im"   # change if your GitHub repo differs
-
+INSTALL_DEPS=false; DO_RUN=false; DO_TEST=false; DO_INSTALL=false; DO_CLEAN=false
 while [ $# -gt 0 ]; do
   case "$1" in
-    --deb)          BUILD_DEB=true ;;
-    --appimage)     BUILD_APPIMAGE=true ;;
-    --all)          BUILD_DEB=true; BUILD_APPIMAGE=true ;;
-    --clean)        DO_CLEAN=true ;;
     --install-deps) INSTALL_DEPS=true ;;
-    --release)      shift; RELEASE_TAG="${1:-}"; [ -n "$RELEASE_TAG" ] || die "--release needs a tag, e.g. --release v1.1.0" ;;
-    --repo)         shift; REPO="${1:-}" ;;
-    -h|--help)
-      sed -n '2,20p' "$0" | sed 's/^#\{0,1\} \{0,1\}//'
-      exit 0 ;;
-    *) die "Unknown option: $1 (use --help)" ;;
-  esac
-  shift
+    --run) DO_RUN=true ;;
+    --test) DO_TEST=true ;;
+    --install) DO_INSTALL=true ;;
+    --clean) DO_CLEAN=true ;;
+    -h|--help) sed -n '2,24p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    *) die "Unknown option: $1" ;;
+  esac; shift
 done
-# default: build both
-if [ "$BUILD_DEB" = false ] && [ "$BUILD_APPIMAGE" = false ]; then
-  BUILD_DEB=true; BUILD_APPIMAGE=true
-fi
 
-# ---- prerequisites ---------------------------------------------------------
-log "Checking prerequisites"
-command -v node >/dev/null 2>&1 || die "Node.js not found. Install Node 18+ (e.g. 'sudo apt install nodejs npm' or use nvm)."
-command -v npm  >/dev/null 2>&1 || die "npm not found. Install npm."
-
-NODE_MAJOR="$(node -p 'process.versions.node.split(".")[0]')"
-[ "$NODE_MAJOR" -ge 18 ] || die "Node $(node -v) is too old — need 18+."
-ok "Node $(node -v), npm $(npm -v)"
-
-# fpm (used to build the .deb) bundles a Ruby that needs libcrypt.so.1.
-# It's present on most systems; if not, offer to install it.
-if [ "$BUILD_DEB" = true ]; then
-  if command -v ldconfig >/dev/null 2>&1 && ! ldconfig -p 2>/dev/null | grep -q 'libcrypt\.so\.1'; then
-    warn "libcrypt.so.1 is missing (needed by the .deb packager)."
-    if [ "$INSTALL_DEPS" = true ]; then
-      if   command -v apt-get >/dev/null 2>&1; then sudo apt-get update && sudo apt-get install -y libcrypt1 || sudo apt-get install -y libxcrypt1 || true
-      elif command -v dnf     >/dev/null 2>&1; then sudo dnf install -y libxcrypt-compat || true
-      elif command -v pacman  >/dev/null 2>&1; then sudo pacman -S --noconfirm libxcrypt || true
-      fi
-    else
-      warn "Re-run with ${BOLD}--install-deps${RST}, or install it manually:"
-      warn "  Ubuntu/Debian:  sudo apt install libcrypt1"
-      warn "  Fedora/RHEL:    sudo dnf install libxcrypt-compat"
-    fi
-  fi
-fi
-
-# ---- clean (optional) ------------------------------------------------------
-if [ "$DO_CLEAN" = true ]; then
-  log "Cleaning dist/ and node_modules/"
-  rm -rf dist node_modules
-fi
-
-# ---- install deps ----------------------------------------------------------
-log "Installing npm dependencies"
-if [ -f package-lock.json ]; then
-  npm ci || npm install
-else
-  npm install
-fi
-ok "Dependencies ready"
-
-# ---- build -----------------------------------------------------------------
-# Always clear previous artifacts (but keep node_modules) so outputs stay clean.
-rm -rf dist/linux-unpacked dist/*.deb dist/*.AppImage dist/*.blockmap dist/*.rpm 2>/dev/null || true
-
-TARGETS=()
-[ "$BUILD_DEB" = true ]      && TARGETS+=("deb")
-[ "$BUILD_APPIMAGE" = true ] && TARGETS+=("AppImage")
-log "Building for Linux: ${TARGETS[*]}"
-npx --no-install electron-builder --linux "${TARGETS[@]}"
-ok "electron-builder finished"
-
-# ---- results + checksums ---------------------------------------------------
-log "Artifacts"
-shopt -s nullglob
-ARTS=(dist/*.deb dist/*.AppImage)
-[ ${#ARTS[@]} -gt 0 ] || die "No artifacts were produced — check the build output above."
-
-: > dist/SHA256SUMS.txt
-for f in "${ARTS[@]}"; do
-  size="$(du -h "$f" | cut -f1)"
-  sum="$(sha256sum "$f" | cut -d' ' -f1)"
-  printf '%s  %s\n' "$sum" "$(basename "$f")" >> dist/SHA256SUMS.txt
-  printf '   %s%s%s  (%s)\n     %ssha256:%s %s\n' "$BOLD" "$(basename "$f")" "$RST" "$size" "$DIM" "$RST" "$sum"
-done
-ok "Checksums written to dist/SHA256SUMS.txt"
-
-# ---- optional: publish to GitHub Releases ----------------------------------
-if [ -n "$RELEASE_TAG" ]; then
-  log "Publishing to GitHub Release '$RELEASE_TAG' on $REPO"
-  command -v gh >/dev/null 2>&1 || die "GitHub CLI 'gh' not found. Install it (https://cli.github.com) or upload the files manually."
-  NOTES="Native Vault build for Linux (Ubuntu / Kubuntu). Verify with SHA256SUMS.txt."
-  if gh release view "$RELEASE_TAG" --repo "$REPO" >/dev/null 2>&1; then
-    gh release upload "$RELEASE_TAG" "${ARTS[@]}" dist/SHA256SUMS.txt --repo "$REPO" --clobber
+# ---- dependencies ----------------------------------------------------------
+if [ "$INSTALL_DEPS" = true ]; then
+  log "Installing build dependencies"
+  if command -v apt-get >/dev/null 2>&1; then
+    sudo apt-get update
+    sudo apt-get install -y build-essential cmake qt6-base-dev libsodium-dev
+  elif command -v dnf >/dev/null 2>&1; then
+    sudo dnf install -y gcc-c++ cmake qt6-qtbase-devel libsodium-devel rpm-build
+  elif command -v pacman >/dev/null 2>&1; then
+    sudo pacman -S --needed --noconfirm base-devel cmake qt6-base libsodium
   else
-    gh release create "$RELEASE_TAG" "${ARTS[@]}" dist/SHA256SUMS.txt \
-      --repo "$REPO" --title "Vault $RELEASE_TAG" --notes "$NOTES"
+    die "Unsupported package manager — install cmake, a C++ compiler, Qt6 base and libsodium manually."
   fi
-  ok "Uploaded. Direct link pattern:"
-  for f in "${ARTS[@]}"; do
-    printf '   https://github.com/%s/releases/download/%s/%s\n' "$REPO" "$RELEASE_TAG" "$(basename "$f")"
-  done
+  ok "Dependencies installed"
 fi
 
+# ---- checks ----------------------------------------------------------------
+log "Checking toolchain"
+command -v cmake >/dev/null 2>&1 || die "cmake not found. Run: ./build.sh --install-deps"
+{ command -v g++ >/dev/null 2>&1 || command -v clang++ >/dev/null 2>&1; } || die "No C++ compiler found."
+pkg-config --exists libsodium 2>/dev/null || die "libsodium not found. Run: ./build.sh --install-deps"
+ok "Toolchain OK — $(cmake --version | head -1)"
+
+# ---- configure + build -----------------------------------------------------
+[ "$DO_CLEAN" = true ] && { log "Cleaning build/"; rm -rf build; }
+log "Configuring (CMake)"
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+log "Building"
+cmake --build build --parallel "$(nproc 2>/dev/null || echo 2)"
+ok "Built: build/saleh-vault"
+
+# ---- self-test -------------------------------------------------------------
+if [ "$DO_TEST" = true ]; then
+  log "Building & running crypto self-test"
+  cmake --build build --target vault-selftest
+  ./build/vault-selftest
+fi
+
+# ---- run / install / package ----------------------------------------------
+if [ "$DO_RUN" = true ]; then
+  log "Launching Vault"
+  exec ./build/saleh-vault
+fi
+
+if [ "$DO_INSTALL" = true ]; then
+  log "Installing system-wide (sudo)"
+  sudo cmake --install build
+  ok "Installed. Launch 'Vault' from your apps menu or run: saleh-vault"
+  exit 0
+fi
+
+# default: package .deb via CPack
+log "Packaging .deb (CPack)"
+( cd build && cpack -G DEB )
+DEB="$(ls -1 build/*.deb 2>/dev/null | head -n1 || true)"
+[ -n "$DEB" ] || die "No .deb produced — check the output above."
+SUM="$(sha256sum "$DEB" | cut -d' ' -f1)"
 echo
-ok "${BOLD}Done.${RST} Install the .deb with:  ${BOLD}sudo apt install ./$(cd dist && ls -1 *.deb 2>/dev/null | head -n1)${RST}"
-echo "${DIM}Then launch “Vault” from your apps menu, or run: saleh-vault${RST}"
+ok "${B}Done.${Z}"
+printf '   %s (%s)\n   sha256: %s\n\n' "$DEB" "$(du -h "$DEB" | cut -f1)" "$SUM"
+echo "Install:  ${B}sudo apt install ./$DEB${Z}"
+echo "Then launch “Vault” from your apps menu, or run: saleh-vault"

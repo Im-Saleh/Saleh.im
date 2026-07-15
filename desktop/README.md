@@ -1,89 +1,60 @@
-# Vault — Linux desktop app
+# Vault — native Linux app (C++ · Qt6 · libsodium)
 
-A hardened [Electron](https://www.electronjs.org/) wrapper around the **Vault**
-password manager so it installs and runs like a native application on
-**Ubuntu**, **Kubuntu** and any Debian‑based distribution. The renderer is fully
-sandboxed (no Node, no filesystem, no IPC bridges); all cryptography stays
-client‑side, exactly as in the web app.
+A real, native desktop password manager for **Ubuntu / Kubuntu** and any
+Debian-based distro — written in **C++ with Qt6** and **libsodium**. Not a web
+wrapper: it launches straight from your applications menu and runs entirely
+offline. Nothing is ever uploaded.
 
-> One `.deb` covers **both Ubuntu (GNOME) and Kubuntu (KDE)** — they share the
-> same package format and base. The portable **AppImage** runs on virtually any
-> modern Linux distro without installing anything.
+## Security
 
----
+- **Argon2id** memory-hard key derivation (Fast 64 MB / Recommended 256 MB /
+  Paranoid 1 GB presets).
+- **XChaCha20-Poly1305** authenticated encryption; the file header is bound as
+  additional authenticated data, so any tampering fails loudly.
+- Optional **keyfile** second factor — the effective key becomes
+  `BLAKE2b(password ‖ BLAKE2b(keyfile))`.
+- Keys derived into wiped buffers (`sodium_memzero`); the vault file is `0600`.
+- The crypto core ships with a self-test (`./build.sh --test`) validated
+  against RFC 6238 / RFC 2202 vectors.
 
-## Build the installers
+## Features (20+)
 
-Requirements: **Node.js 18+** and **npm** on a Linux machine.
+Master-password unlock · optional keyfile · create/edit/delete · five item
+types (login, 2FA, note, card, identity) · **RFC-6238 TOTP** with live
+countdown · password **generator** + **passphrase** generator · strength meter ·
+search · folders · tags · favorites · clipboard **auto-clear** · **auto-lock**
+on idle · lock on minimize · **system tray** · keyboard shortcuts
+(Ctrl+L/F/N/G/Q) · reveal/hide · **password history** · **security audit**
+(weak/reused/old/no-2FA/insecure) · **encrypted backup** export · change master
+password · dark/light theme · configurable Argon2 strength · open-URL · secure
+wipe.
+
+## Build & install
 
 ```bash
 cd desktop
-npm install
-npm run dist          # builds both .deb and .AppImage into desktop/dist/
-# or individually:
-npm run dist:deb
-npm run dist:appimage
+./build.sh --install-deps   # first time only (installs Qt6 + libsodium + cmake)
+./build.sh                  # builds and packages saleh-vault_1.0.0_amd64.deb
+sudo apt install ./build/saleh-vault_1.0.0_amd64.deb
 ```
 
-Artifacts land in `desktop/dist/`:
+Then launch **Vault** from your apps menu (GNOME or KDE), or run `saleh-vault`.
 
-- `Vault-1.0.0-x64.deb`      → Ubuntu / Kubuntu installer
-- `Vault-1.0.0-x64.AppImage` → portable, no install required
-
----
-
-## Install on Ubuntu / Kubuntu
-
-**Option A — `.deb` (recommended):**
+Other options:
 
 ```bash
-sudo apt install ./dist/Vault-1.0.0-x64.deb
-# (older systems)  sudo dpkg -i ./dist/Vault-1.0.0-x64.deb && sudo apt -f install
+./build.sh --run       # build & launch without packaging
+./build.sh --test      # build & run the crypto self-test
+./build.sh --install   # build then install system-wide (no .deb)
+./build.sh --clean     # fresh build
 ```
 
-Then launch **Vault** from the applications menu (works in both GNOME Shell and
-KDE Plasma), or run `saleh-vault` from a terminal.
+Uninstall: `sudo apt remove saleh-vault`.
 
-**Option B — AppImage (no install):**
+## Requirements
 
-```bash
-chmod +x ./dist/Vault-1.0.0-x64.AppImage
-./dist/Vault-1.0.0-x64.AppImage
-```
+- Ubuntu/Kubuntu: `build-essential cmake qt6-base-dev libsodium-dev`
+- Fedora: `gcc-c++ cmake qt6-qtbase-devel libsodium-devel rpm-build`
 
-Uninstall the `.deb` with: `sudo apt remove saleh-vault-desktop`.
-
-### Native features & security
-
-The desktop build adds a system tray, global hotkeys (`Ctrl+Shift+L` locks
-instantly, `Ctrl+Shift+V` toggles the window), a native menu, auto-lock on
-system suspend / screen-lock / idle / blur, clipboard wipe on lock and quit,
-screenshot-capture protection, blocked DevTools and off-origin navigation, a
-sandboxed renderer (no Node/IPC) and permission-deny-all.
-
----
-
-## Security model
-
-- **Sandboxed renderer** — `sandbox: true`, `contextIsolation: true`,
-  `nodeIntegration: false`. The web page cannot touch the OS.
-- **No menu, no new windows** — external links open in your system browser.
-- **All permissions denied** — camera, microphone, geolocation, notifications
-  and clipboard prompts are refused; a vault needs none of them.
-- **Single instance** — a second launch just focuses the existing window.
-- **Zero‑knowledge** — your master password (and optional **keyfile** second
-  factor) never leave the machine; only ciphertext is stored, in a dedicated
-  persistent partition scoped to the app.
-
-## Fully offline / self‑hosted
-
-By default the app loads the hosted Vault (its service worker caches everything
-for offline use, and the crypto is client‑side). For an air‑gapped setup, point
-it at a local instance:
-
-```bash
-VAULT_URL=http://localhost:3000/vault npm start
-```
-
-To bake a different default URL into a build, edit `VAULT_URL` in `main.js`
-before running `npm run dist`.
+Everything is local and open source. Your master password never leaves the
+machine.

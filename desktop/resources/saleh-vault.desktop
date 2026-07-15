@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Vault
+GenericName=Password Manager
+Comment=Zero-knowledge encrypted password vault
+Exec=saleh-vault
+Icon=saleh-vault
+Terminal=false
+Categories=Utility;Security;
+Keywords=password;vault;security;2fa;totp;encryption;passwords;
+StartupWMClass=Vault
+StartupNotify=true
