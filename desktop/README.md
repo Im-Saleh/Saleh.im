@@ -42,7 +42,7 @@ sudo apt install ./dist/Vault-1.0.0-x64.deb
 ```
 
 Then launch **Vault** from the applications menu (works in both GNOME Shell and
-KDE Plasma), or run `vault` from a terminal.
+KDE Plasma), or run `saleh-vault` from a terminal.
 
 **Option B — AppImage (no install):**
 
@@ -51,7 +51,15 @@ chmod +x ./dist/Vault-1.0.0-x64.AppImage
 ./dist/Vault-1.0.0-x64.AppImage
 ```
 
-Uninstall the `.deb` with: `sudo apt remove vault`.
+Uninstall the `.deb` with: `sudo apt remove saleh-vault-desktop`.
+
+### Native features & security
+
+The desktop build adds a system tray, global hotkeys (`Ctrl+Shift+L` locks
+instantly, `Ctrl+Shift+V` toggles the window), a native menu, auto-lock on
+system suspend / screen-lock / idle / blur, clipboard wipe on lock and quit,
+screenshot-capture protection, blocked DevTools and off-origin navigation, a
+sandboxed renderer (no Node/IPC) and permission-deny-all.
 
 ---
 

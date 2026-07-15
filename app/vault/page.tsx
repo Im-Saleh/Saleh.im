@@ -958,7 +958,7 @@ function Settings({
             <p className="text-sm font-medium">{t.desktopLinux}</p>
             <p className="text-xs text-[var(--fg-2)]">{t.desktopHint}</p>
           </div>
-          <a href="https://github.com/im-saleh/Saleh.im/tree/main/desktop" target="_blank" rel="noopener noreferrer" className="btn btn-outline px-3 py-2 text-xs">
+          <a href="/download" className="btn btn-outline px-3 py-2 text-xs">
             <Icon name="download" size={14} /> {t.desktopCta}
           </a>
         </div>
