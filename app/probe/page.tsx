@@ -30,6 +30,8 @@ import {
   type ConnectionVerdict,
   type JurisdictionResult,
 } from "@/lib/probe/analyze";
+import { collectCapabilities, type Capabilities } from "@/lib/probe/capabilities";
+import { deriveFindings, connectionQuality, type Finding } from "@/lib/probe/insights";
 
 /* ============================================================================
    Probe — a real connection & privacy inspector. Every check runs live in the
@@ -45,7 +47,7 @@ import {
 
 type Cand = { ip: string; type: string; mdns: boolean };
 type Ping = { host: string; label: string; ms: number | null; hist: number[] };
-type Tab = "intel" | "network" | "fingerprint" | "performance" | "permissions";
+type Tab = "intel" | "network" | "capabilities" | "fingerprint" | "performance" | "permissions";
 
 export default function ProbePage() {
   const { lang } = useLang();
@@ -64,6 +66,7 @@ export default function ProbePage() {
   const [device, setDevice] = useState<DeviceSignals | null>(null);
   const [devHash, setDevHash] = useState<string>("");
   const [cpu, setCpu] = useState<CpuProfile | null>(null);
+  const [caps, setCaps] = useState<Capabilities | null>(null);
 
   // ---- live probes ----
   const [cands, setCands] = useState<Cand[]>([]);
@@ -96,6 +99,15 @@ export default function ProbePage() {
       alive = false;
     };
   }, []);
+
+  /* ---- capability & hardware surface ---- */
+  useEffect(() => {
+    let alive = true;
+    collectCapabilities().then((c) => alive && setCaps(c)).catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [tick]);
 
   /* ---- multi-provider IP/geo ---- */
   useEffect(() => {
@@ -290,6 +302,30 @@ export default function ProbePage() {
     [geo, tzMismatch, webrtcMismatch]
   );
 
+  const findings: Finding[] = useMemo(
+    () =>
+      deriveFindings({
+        localLeak,
+        publicLeak,
+        masking: connection.masking,
+        connectionKind: connection.kind,
+        geoCc: geo?.cc,
+        trueCc: jurisdiction.cc,
+        jurisdictionConfidence: jurisdiction.confidence,
+        geolocationGranted: perms.geolocation === "granted",
+        uniqueness: caps?.uniqueness ?? 0,
+        timeSkewMs: caps?.timeSkewMs ?? null,
+        httpProtocol: caps?.httpProtocol ?? "",
+        secureContext: typeof window !== "undefined" ? window.isSecureContext : null,
+        gpc: typeof navigator !== "undefined" && !!(navigator as any).globalPrivacyControl,
+        dnt: typeof navigator !== "undefined" && ((navigator as any).doNotTrack === "1" || (navigator as any).doNotTrack === "yes"),
+        camerasMics: devices.cam + devices.mic,
+      }),
+    [localLeak, publicLeak, connection, geo?.cc, jurisdiction, perms.geolocation, caps, devices]
+  );
+
+  const quality = useMemo(() => connectionQuality(pings.map((p) => p.hist)), [pings]);
+
   const score = Math.max(
     0,
     100 -
@@ -313,7 +349,21 @@ export default function ProbePage() {
         sub: "بازرسِ اتصال و ردپای دیجیتال",
         scan: "اسکن دوباره",
         scoreL: "امتیاز حریم خصوصی",
-        tabs: { intel: "برآورد", network: "شبکه", fingerprint: "ردپا", performance: "کارایی", permissions: "دسترسی‌ها" },
+        tabs: { intel: "برآورد", network: "شبکه", capabilities: "قابلیت‌ها", fingerprint: "ردپا", performance: "کارایی", permissions: "دسترسی‌ها" },
+        capsTitle: "سطحِ قابلیت‌ها",
+        supported: "پشتیبانی‌شده",
+        uniqueness: "میزانِ یکتایی",
+        uniqueNote: "هرچه ترکیبِ قابلیت‌ها نادرتر باشد، مرورگرِ شما شناسایی‌پذیرتر است.",
+        httpProto: "پروتکلِ HTTP",
+        timeSkew: "اختلافِ ساعت",
+        refresh: "نرخِ نوسازی",
+        gpuAdapter: "آداپتورِ GPU",
+        capsLoading: "در حالِ بررسیِ قابلیت‌ها…",
+        exposure: "افشا و ریسک",
+        quality: "کیفیتِ اتصال",
+        jitter: "جیتر",
+        loss: "افت",
+        avgLat: "میانگین",
         trueLoc: "موقعیت واقعیِ برآوردشده",
         confidence: "قطعیت",
         pathStatus: "وضعیتِ مسیر",
@@ -388,7 +438,21 @@ export default function ProbePage() {
         sub: "Connection & digital-trail inspector",
         scan: "Re-scan",
         scoreL: "Privacy score",
-        tabs: { intel: "Assessment", network: "Network", fingerprint: "Trail", performance: "Performance", permissions: "Permissions" },
+        tabs: { intel: "Assessment", network: "Network", capabilities: "Capabilities", fingerprint: "Trail", performance: "Performance", permissions: "Permissions" },
+        capsTitle: "Capability surface",
+        supported: "supported",
+        uniqueness: "Uniqueness",
+        uniqueNote: "The rarer your mix of capabilities, the more identifiable your browser is.",
+        httpProto: "HTTP protocol",
+        timeSkew: "Clock skew",
+        refresh: "Refresh rate",
+        gpuAdapter: "GPU adapter",
+        capsLoading: "probing capabilities…",
+        exposure: "Exposure & risk",
+        quality: "Connection quality",
+        jitter: "Jitter",
+        loss: "Loss",
+        avgLat: "Average",
         trueLoc: "Estimated true location",
         confidence: "confidence",
         pathStatus: "Path status",
@@ -647,6 +711,33 @@ export default function ProbePage() {
                 <Field label={T.src} value={geo?.source} />
               </div>
             </div>
+
+            {/* Exposure & risk findings */}
+            <div className="panel elev p-5 lg:col-span-2">
+              <p className="label mb-4">{T.exposure}</p>
+              {findings.length === 0 ? (
+                <p className="text-sm text-[var(--fg-2)]">{T.analyzing}</p>
+              ) : (
+                <div className="grid gap-2.5 sm:grid-cols-2">
+                  {findings.map((f, i) => {
+                    const col = f.severity === "high" ? "#ef4444" : f.severity === "medium" ? "#f97316" : f.severity === "low" ? "#eab308" : "#22c55e";
+                    return (
+                      <div
+                        key={f.id}
+                        className="flex gap-3 rounded-xl border p-3"
+                        style={{ borderColor: "var(--line)", background: "var(--bg-3)", animation: "popIn .45s cubic-bezier(.22,1,.36,1) both", animationDelay: `${i * 40}ms` }}
+                      >
+                        <span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: col, boxShadow: `0 0 10px ${col}` }} />
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium">{fa ? f.faTitle : f.title}</p>
+                          <p className="mt-0.5 text-xs text-[var(--fg-2)]">{fa ? f.faDetail : f.detail}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         )}
 
@@ -666,16 +757,15 @@ export default function ProbePage() {
             </div>
             <div className="panel elev p-5">
               <p className="label mb-4">{T.netTitle}</p>
-              {net ? (
-                <div className="grid gap-3">
-                  <Field label={T.type} value={net.type?.toUpperCase()} />
-                  <Field label={T.down} value={net.downlink ? `${net.downlink} Mbps` : "—"} />
-                  <Field label={T.rtt} value={net.rtt != null ? `${net.rtt} ms` : "—"} />
-                  <Field label={T.save} value={net.save ? "on" : "off"} />
-                </div>
-              ) : (
-                <p className="text-sm text-[var(--fg-2)]">{T.na}</p>
-              )}
+              <div className="grid gap-3">
+                <Field label={T.httpProto} value={caps?.httpProtocol} mono />
+                {net && <Field label={T.type} value={net.type?.toUpperCase()} />}
+                {net && <Field label={T.down} value={net.downlink ? `${net.downlink} Mbps` : "—"} />}
+                {net && <Field label={T.rtt} value={net.rtt != null ? `${net.rtt} ms` : "—"} />}
+                <Field label={T.timeSkew} value={caps?.timeSkewMs == null ? undefined : `${caps.timeSkewMs > 0 ? "+" : ""}${(caps.timeSkewMs / 1000).toFixed(1)}s`} mono />
+                {net && <Field label={T.save} value={net.save ? "on" : "off"} />}
+              </div>
+              {!net && <p className="mt-3 text-xs text-[var(--fg-2)]">{T.na}</p>}
             </div>
 
             {/* provider trail */}
@@ -694,6 +784,29 @@ export default function ProbePage() {
                     </span>
                   </div>
                 ))}
+              </div>
+            </div>
+
+            {/* connection quality */}
+            <div className="panel elev relative overflow-hidden p-5 lg:col-span-3">
+              <div className="conic-sheen" aria-hidden style={{ opacity: 0.12 }} />
+              <p className="label relative mb-4">{T.quality}</p>
+              <div className="relative flex flex-wrap items-center gap-6">
+                <div className="relative grid h-24 w-24 shrink-0 place-items-center">
+                  <svg viewBox="0 0 100 100" className="h-24 w-24 -rotate-90">
+                    <circle cx="50" cy="50" r="42" fill="none" stroke="var(--bg-3)" strokeWidth="8" />
+                    <circle cx="50" cy="50" r="42" fill="none" stroke={quality.score >= 80 ? "#22c55e" : quality.score >= 50 ? "#eab308" : "#ef4444"} strokeWidth="8" strokeLinecap="round" strokeDasharray={`${(quality.score / 100) * 2 * Math.PI * 42} 999`} style={{ transition: "stroke-dasharray .8s ease" }} />
+                  </svg>
+                  <div className="absolute text-center">
+                    <p className="font-display text-2xl">{num(quality.score)}</p>
+                    <p className="label" style={{ fontSize: "0.55rem" }}>{fa ? quality.faLabel : quality.label}</p>
+                  </div>
+                </div>
+                <div className="grid flex-1 grid-cols-3 gap-3">
+                  <Field label={T.avgLat} value={quality.avg ? `${num(quality.avg)} ms` : "…"} mono />
+                  <Field label={T.jitter} value={quality.avg ? `${num(quality.jitter)} ms` : "…"} mono />
+                  <Field label={T.loss} value={`${num(quality.loss)}%`} mono />
+                </div>
               </div>
             </div>
 
@@ -749,16 +862,106 @@ export default function ProbePage() {
           </div>
         )}
 
+        {/* ========================= CAPABILITIES ========================= */}
+        {tab === "capabilities" && (
+          <div className="space-y-4">
+            {!caps ? (
+              <div className="panel elev grid place-items-center py-20 text-sm text-[var(--fg-2)]">{T.capsLoading}</div>
+            ) : (
+              <>
+                {/* summary rail */}
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                  <div className="panel elev relative overflow-hidden p-5">
+                    <div className="conic-sheen" aria-hidden style={{ opacity: 0.14 }} />
+                    <p className="label relative mb-2">{T.capsTitle}</p>
+                    <div className="relative flex items-center gap-3">
+                      <svg viewBox="0 0 36 36" className="h-14 w-14 -rotate-90">
+                        <circle cx="18" cy="18" r="15" fill="none" stroke="var(--bg-3)" strokeWidth="3.5" />
+                        <circle cx="18" cy="18" r="15" fill="none" stroke="var(--accent)" strokeWidth="3.5" strokeLinecap="round" strokeDasharray={`${(caps.supportedCount / (caps.totalCount || 1)) * 2 * Math.PI * 15} 999`} style={{ transition: "stroke-dasharray .8s ease" }} />
+                      </svg>
+                      <div>
+                        <p className="font-display text-2xl">{num(caps.supportedCount)}<span className="text-sm text-[var(--fg-2)]">/{num(caps.totalCount)}</span></p>
+                        <p className="label">{T.supported}</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="panel elev p-5">
+                    <p className="label mb-2">{T.uniqueness}</p>
+                    <p className="font-display text-3xl" style={{ color: caps.uniqueness >= 66 ? "#ef4444" : caps.uniqueness >= 40 ? "#eab308" : "#22c55e" }}>{num(caps.uniqueness)}%</p>
+                    <div className="mt-2 h-1.5 overflow-hidden rounded-full" style={{ background: "var(--bg-3)" }}>
+                      <div className="h-full rounded-full" style={{ width: `${caps.uniqueness}%`, background: caps.uniqueness >= 66 ? "#ef4444" : caps.uniqueness >= 40 ? "#eab308" : "#22c55e", transition: "width .8s ease" }} />
+                    </div>
+                  </div>
+                  <div className="panel elev p-5">
+                    <p className="label mb-2">{T.refresh}</p>
+                    <p className="font-display text-3xl force-ltr">{num(caps.refreshHz)} <span className="text-sm text-[var(--fg-2)]">Hz</span></p>
+                    <p className="mono mt-1 text-xs text-[var(--fg-2)] force-ltr">{T.httpProto}: {caps.httpProtocol}</p>
+                  </div>
+                  <div className="panel elev p-5">
+                    <p className="label mb-2">{T.timeSkew}</p>
+                    <p className="font-display text-3xl force-ltr" style={{ color: caps.timeSkewMs != null && Math.abs(caps.timeSkewMs) > 60000 ? "#eab308" : "var(--fg)" }}>
+                      {caps.timeSkewMs == null ? "—" : `${caps.timeSkewMs > 0 ? "+" : ""}${(caps.timeSkewMs / 1000).toFixed(1)}s`}
+                    </p>
+                    <p className="mono mt-1 truncate text-xs text-[var(--fg-2)] force-ltr">{caps.gpuAdapter || "GPU: —"}</p>
+                  </div>
+                </div>
+
+                {/* groups */}
+                <div className="grid gap-4 lg:grid-cols-2">
+                  {caps.groups.map((g, gi) => (
+                    <div
+                      key={g.key}
+                      className="panel elev glow-border p-5"
+                      style={{ animation: "popIn .5s cubic-bezier(.22,1,.36,1) both", animationDelay: `${gi * 60}ms` }}
+                    >
+                      <div className="mb-3 flex items-center gap-2">
+                        <span className="grid h-7 w-7 place-items-center rounded-lg text-sm" style={{ background: "color-mix(in srgb, var(--accent) 14%, transparent)", color: "var(--accent)" }}>{g.icon}</span>
+                        <h3 className="font-display text-base">{fa ? g.faTitle : g.title}</h3>
+                      </div>
+                      <div className="grid gap-1.5">
+                        {g.items.map((it) => (
+                          <div key={it.label} className="flex items-center justify-between gap-3 rounded-lg px-2.5 py-1.5 text-sm transition-colors hover:bg-[var(--bg-3)]">
+                            <span className="min-w-0 truncate text-[var(--fg-2)]">{fa ? it.faLabel : it.label}</span>
+                            <span className="flex shrink-0 items-center gap-2">
+                              <span className="mono text-xs force-ltr" style={{ color: it.ok === false ? "var(--fg-2)" : "var(--fg)" }}>{it.value}</span>
+                              {it.ok !== null && (
+                                <span className="h-2 w-2 rounded-full" style={{ background: it.ok ? "#22c55e" : "color-mix(in srgb, var(--fg-2) 40%, transparent)" }} />
+                              )}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-center text-xs text-[var(--fg-2)]">{T.uniqueNote}</p>
+              </>
+            )}
+          </div>
+        )}
+
         {/* ========================== FINGERPRINT ========================= */}
         {tab === "fingerprint" && (
           <div className="grid gap-4 lg:grid-cols-2">
-            <div className="panel elev p-5">
-              <p className="label mb-4">{T.combined}</p>
-              <p className="font-display text-xl force-ltr break-all sm:text-2xl" style={{ color: "var(--accent)", letterSpacing: "0.05em" }}>
+            <div className="panel elev glow-border relative overflow-hidden p-5">
+              <div className="conic-sheen" aria-hidden style={{ opacity: 0.12 }} />
+              <p className="label relative mb-4">{T.combined}</p>
+              <p className="relative font-display text-xl force-ltr break-all sm:text-2xl" style={{ color: "var(--accent)", letterSpacing: "0.05em" }}>
                 {devHash ? groupHash(devHash, 5, 4) : "…"}
               </p>
-              <p className="mt-3 text-xs text-[var(--fg-2)]">{T.fpNote}</p>
-              <div className="mt-4 grid gap-3">
+              <p className="relative mt-3 text-xs text-[var(--fg-2)]">{T.fpNote}</p>
+              {caps && (
+                <div className="relative mt-4">
+                  <div className="mb-1 flex items-center justify-between">
+                    <span className="label">{T.uniqueness}</span>
+                    <span className="mono text-xs" style={{ color: caps.uniqueness >= 66 ? "#ef4444" : caps.uniqueness >= 40 ? "#eab308" : "#22c55e" }}>{num(caps.uniqueness)}%</span>
+                  </div>
+                  <div className="h-1.5 overflow-hidden rounded-full" style={{ background: "var(--bg-3)" }}>
+                    <div className="h-full rounded-full" style={{ width: `${caps.uniqueness}%`, background: caps.uniqueness >= 66 ? "#ef4444" : caps.uniqueness >= 40 ? "#eab308" : "#22c55e", transition: "width .8s ease" }} />
+                  </div>
+                </div>
+              )}
+              <div className="relative mt-4 grid gap-3">
                 <Field label={T.canvas} value={device?.canvasHash} mono />
                 <Field label={T.audio} value={device?.audio} mono />
               </div>
