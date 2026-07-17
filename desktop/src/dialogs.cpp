@@ -491,6 +491,28 @@ SettingsDialog::SettingsDialog(const vault::Settings& s, QWidget* parent) : QDia
     confirmDel_->setChecked(s.confirmDelete);
     form->addRow("", confirmDel_);
 
+    // ---- live monitor --------------------------------------------------------
+    auto* liveLbl = new QLabel("LIVE BROWSER-LOGIN MONITOR", this);
+    liveLbl->setObjectName("label");
+    form->addRow(liveLbl);
+
+    liveEnabled_ = new QCheckBox("Watch browsers for new sign-ins in real time", this);
+    liveEnabled_->setChecked(s.liveMonitorEnabled);
+    form->addRow("", liveEnabled_);
+    liveNotify_ = new QCheckBox("Show a tray notification per new sign-in", this);
+    liveNotify_->setChecked(s.liveMonitorNotify);
+    liveNotify_->setEnabled(s.liveMonitorEnabled);
+    form->addRow("", liveNotify_);
+    liveAutoSave_ = new QCheckBox("Automatically add detected logins to the vault", this);
+    liveAutoSave_->setToolTip("Off by default — review each capture in the Live Monitor window before it's saved.");
+    liveAutoSave_->setChecked(s.liveMonitorAutoSave);
+    liveAutoSave_->setEnabled(s.liveMonitorEnabled);
+    form->addRow("", liveAutoSave_);
+    connect(liveEnabled_, &QCheckBox::toggled, this, [this](bool on) {
+        liveNotify_->setEnabled(on);
+        liveAutoSave_->setEnabled(on);
+    });
+
     // ---- behaviour ---------------------------------------------------------
     auto* behLbl = new QLabel("BEHAVIOUR", this);
     behLbl->setObjectName("label");
@@ -554,6 +576,9 @@ vault::Settings SettingsDialog::result() const {
     s.confirmDelete = confirmDel_->isChecked();
     s.passwordAgeDays = ageDays_->value();
     s.defaultNewType = defType_->currentData().toString();
+    s.liveMonitorEnabled = liveEnabled_->isChecked();
+    s.liveMonitorNotify = liveNotify_->isChecked();
+    s.liveMonitorAutoSave = liveAutoSave_->isChecked();
     return s;
 }
 

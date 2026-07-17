@@ -27,6 +27,7 @@ add_executable(saleh-vault
     src/extradialogs.cpp
     src/commandpalette.cpp
     src/browserimport.cpp
+    src/livemonitor.cpp
     src/mainwindow.cpp
 )
 
@@ -61,6 +62,7 @@ add_executable(vault-smoke EXCLUDE_FROM_ALL
     src/extradialogs.cpp
     src/commandpalette.cpp
     src/browserimport.cpp
+    src/livemonitor.cpp
     src/mainwindow.cpp
 )
 target_include_directories(vault-smoke PRIVATE ${SODIUM_INCLUDE_DIRS})

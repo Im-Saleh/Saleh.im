@@ -11,12 +11,14 @@
 #include <QVector>
 
 #include "browserimport.hpp"
+#include "livemonitor.hpp"
 #include "vault.hpp"
 
 class QLineEdit;
 class QVBoxLayout;
 class QLabel;
 class QCheckBox;
+class QPushButton;
 
 // Visual palette gallery. Live-previews on hover/selection and returns the id.
 class ThemePickerDialog : public QDialog {
@@ -81,6 +83,35 @@ private:
     QLabel* status_ = nullptr;
     QString methodFilter_ = "all";
     QString query_;
+};
+
+// Live browser-login monitor: start/stop a real-time QFileSystemWatcher feed
+// and review every sign-in it captures, one at a time, adding the ones you
+// want straight into the vault.
+class LiveMonitorDialog : public QDialog {
+    Q_OBJECT
+public:
+    // The dialog does not own the monitor — MainWindow keeps it running for
+    // the app's lifetime (even while this dialog is closed) so notifications
+    // and the tray badge keep working from anywhere in the app.
+    LiveMonitorDialog(bimport::LiveMonitor* monitor, bool startEnabled, QWidget* parent = nullptr);
+
+    bool monitorEnabled() const { return enabled_; }
+
+signals:
+    void addToVaultRequested(const bimport::Credential& c);
+    void enabledChanged(bool on);
+
+private:
+    void rebuildFeed();
+    void setRunning(bool on);
+
+    bimport::LiveMonitor* monitor_;
+    bool enabled_;
+    class QVBoxLayout* feedLayout_ = nullptr;
+    QLabel* status_ = nullptr;
+    QLabel* countBadge_ = nullptr;
+    QPushButton* toggleBtn_ = nullptr;
 };
 
 // Create / rename / re-icon / delete folders.

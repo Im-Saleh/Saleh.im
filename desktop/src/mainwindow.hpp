@@ -4,7 +4,10 @@
 #include <QPair>
 #include <QVector>
 
+#include "browserimport.hpp"
 #include "vault.hpp"
+
+namespace bimport { class LiveMonitor; }
 
 class QListWidget;
 class QLineEdit;
@@ -72,6 +75,8 @@ private:
     void pickTheme();
     void importItems();
     void importFromBrowsers();
+    void openLiveMonitor();
+    void addLiveCredentialToVault(const bimport::Credential& c);
     void exportItems();
     void changeMaster();
     void exportBackup();
@@ -115,4 +120,8 @@ private:
     QString totpSecretForDetail_;
     QVector<QPair<QPushButton*, QString>> toolIcons_;  // toolbar buttons → icon name (re-tinted on theme change)
     bool quitting_ = false;
+
+    bimport::LiveMonitor* liveMonitor_ = nullptr;
+    QPushButton* liveMonitorBtn_ = nullptr;  // toolbar button, relabelled with an unreviewed count
+    void updateLiveMonitorBadge();
 };
