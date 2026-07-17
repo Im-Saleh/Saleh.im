@@ -17,20 +17,38 @@ offline. Nothing is ever uploaded.
 - The crypto core ships with a self-test (`./build.sh --test`) validated
   against RFC 6238 / RFC 2202 vectors.
 
-## Features (20+)
+## Features (40+)
 
-**Quick Capture** (Ctrl+Shift+A grabs the active site and saves a credential) ·
-master-password unlock · optional keyfile · create/edit/delete/**duplicate** ·
-five item types (login, 2FA, note, card, identity) · **RFC-6238 TOTP** with live
-countdown · password **generator** + **passphrase** generator · strength meter ·
-**multi-term search** · folders · **move-to-folder** · tags · favorites ·
-**Recent** view + **sort** (recent/updated/title) · colored **avatars** ·
-**right-click actions** · **copy & open** · clipboard **auto-clear** ·
-**auto-lock** on idle · **auto re-hide** revealed secrets · lock on minimize ·
-**system tray** · keyboard shortcuts (Ctrl+L/F/N/G/Q, Ctrl+Shift+A) ·
-reveal/hide · **password history** · **security audit** · **encrypted backup** ·
-change master password · dark/light theme · configurable Argon2 strength ·
-open-URL · **open vault folder** · secure wipe.
+**12 item types** — login, 2FA code, secure note, payment card, identity, SSH
+key, API credential, Wi-Fi network, bank account, crypto wallet, server/database
+and software licence — each with a tailored form, plus **user-defined custom
+fields** (any label/value, optionally hidden) on every item.
+
+- **Command palette** (Ctrl+K): fuzzy-search every action and entry, keyboard-first.
+- **18 colour themes** across dark & light, chosen from a live visual **theme
+  gallery** (Carbon Lime, Obsidian Violet, Midnight, Nord, Dracula, Gruvbox,
+  Deep Forest, Ember Rose, Solarized, Ocean, Wine, Graphite, Warm Paper, Frost,
+  Rose Quartz, Sand, Mint…).
+- **Dashboard** — a statistics & security-health view: totals, per-type
+  breakdown, 2FA coverage, entropy, expiring items and a health score.
+- **Security audit** — weak / reused / aging / no-2FA / insecure-URL / expiring.
+- **Generator** with five modes — password, passphrase (200-word list), PIN,
+  memorable/pronounceable, hex key — with exclude-characters, minimum
+  digit/symbol constraints and a recent-results history.
+- **Trash** (soft delete → restore or delete-forever, Empty Trash).
+- **Folder manager** (create/rename/re-icon/delete), tags, favorites.
+- **Import** (JSON + generic/browser CSV) and **Export** (JSON / CSV) plus
+  fully **encrypted backups**.
+- **Password history** (browse / copy / restore previous passwords).
+- **Per-item expiry** with dashboard/audit reminders; custom per-item emoji.
+- **RFC-6238 TOTP** with live countdown · **Quick Capture** (Ctrl+Shift+A) ·
+  multi-term search · sort (recent/updated/created/title) · right-click actions ·
+  copy & open · clipboard **auto-clear** · **auto-lock** on idle · auto re-hide ·
+  lock on minimize · **system tray** · full **menu bar** · compact/comfortable
+  list density · configurable Argon2 strength · secure wipe.
+
+Keyboard: `Ctrl+K` palette · `Ctrl+F` search · `Ctrl+N` new · `Ctrl+G` generator ·
+`Ctrl+D` dashboard · `Ctrl+L` lock · `Ctrl+Shift+A` Quick Capture · `Ctrl+Q` quit.
 
 ## Build & install
 

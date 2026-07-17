@@ -29,6 +29,42 @@ function Preview({ name, accent }: { name: string; accent: boolean }) {
         <path d="M0 45 L15 38 L30 42 L45 25 L60 30 L75 14 L100 20" fill="none" stroke={stroke} strokeWidth="1.6" vectorEffect="non-scaling-stroke" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     );
+  if (name === "Forge")
+    return (
+      <div className="grid h-full grid-cols-3 grid-rows-3 gap-2.5">
+        {["{ }", "⧉", "🔗", "#", "◐", ".*", "🎫", "M↓", "⚇"].map((g, i) => (
+          <div
+            key={i}
+            className="mono grid place-items-center rounded-xl text-sm"
+            style={{
+              color: stroke,
+              background: "color-mix(in srgb, currentColor 8%, transparent)",
+              border: `1px solid color-mix(in srgb, currentColor 16%, transparent)`,
+            }}
+          >
+            {g}
+          </div>
+        ))}
+      </div>
+    );
+  if (name === "Vault")
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-4">
+        <svg viewBox="0 0 24 24" width="64" height="64" fill="none" stroke={stroke} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="3" y="11" width="18" height="11" rx="2.5" />
+          <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+          <circle cx="12" cy="16" r="1.4" fill={stroke} />
+        </svg>
+        <div className="flex flex-col gap-2 self-stretch px-4">
+          {["82%", "64%", "73%"].map((w, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <span className="mono text-[9px]" style={{ color: stroke, opacity: 0.6 }}>••••</span>
+              <div className="h-2 rounded-full" style={{ width: w, background: stroke, opacity: 0.55 - i * 0.12 }} />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
   // Probe — concentric rings
   return (
     <svg viewBox="0 0 100 100" className="h-full w-full">
@@ -60,7 +96,7 @@ export function Showcase({ items }: { items: Project[] }) {
               href={p.href}
               target={p.internal ? undefined : "_blank"}
               rel="noopener noreferrer"
-              className="group elev glow-border relative grid overflow-hidden rounded-[1.75rem] p-7 sm:p-10 lg:grid-cols-[1.3fr_1fr] lg:gap-8"
+              className="group elev glow-border shine relative grid overflow-hidden rounded-[1.75rem] p-7 sm:p-10 lg:grid-cols-[1.3fr_1fr] lg:gap-8"
               style={{
                 background: accent ? "var(--accent)" : "var(--bg-2)",
                 color: accent ? "var(--on-accent)" : "var(--fg)",

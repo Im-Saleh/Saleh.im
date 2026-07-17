@@ -10,6 +10,7 @@
 #include <QFile>
 #include <QFileDialog>
 #include <QFileInfo>
+#include <QFrame>
 #include <QHBoxLayout>
 #include <QIcon>
 #include <QKeySequence>
@@ -18,6 +19,7 @@
 #include <QListWidget>
 #include <QListWidgetItem>
 #include <QMenu>
+#include <QMenuBar>
 #include <QMessageBox>
 #include <QPainter>
 #include <QPainterPath>
@@ -35,28 +37,20 @@
 #include <algorithm>
 
 #include "authdialog.hpp"
+#include "commandpalette.hpp"
 #include "crypto.hpp"
 #include "dialogs.hpp"
 #include "effects.hpp"
+#include "extradialogs.hpp"
 #include "generator.hpp"
 #include "theme.hpp"
 
-static QColor typeColor(const QString& t) {
-    if (t == "login") return QColor("#c8ff4d");
-    if (t == "note") return QColor("#f7b955");
-    if (t == "card") return QColor("#67e8f9");
-    if (t == "identity") return QColor("#c084fc");
-    if (t == "totp") return QColor("#4ade80");
-    return QColor("#8b929e");
+static QColor entryColor(const vault::Entry& e) {
+    if (!e.color.isEmpty()) return QColor(e.color);
+    return QColor(vault::typeInfo(e.type).color);
 }
-
-static QString iconFor(const QString& type) {
-    if (type == "login") return "🔑";
-    if (type == "note") return "📝";
-    if (type == "card") return "💳";
-    if (type == "identity") return "🪪";
-    if (type == "totp") return "🛡️";
-    return "•";
+static QString entryIcon(const vault::Entry& e) {
+    return e.iconEmoji.isEmpty() ? vault::typeIcon(e.type) : e.iconEmoji;
 }
 
 MainWindow::MainWindow(const QString& path, const QString& password, const QByteArray& keyfile,
@@ -64,8 +58,10 @@ MainWindow::MainWindow(const QString& path, const QString& password, const QByte
     : QMainWindow(parent), path_(path), password_(password), keyfile_(keyfile),
       kdfPreset_(kdfPreset), data_(data) {
     setWindowTitle("Vault");
-    resize(1120, 760);
+    resize(1200, 800);
+    filter_ = data_.settings.startupView.isEmpty() ? "all" : data_.settings.startupView;
     buildUi();
+    buildMenuBar();
     buildTray();
     installShortcuts();
     rebuildSidebar();
@@ -115,7 +111,7 @@ MainWindow::MainWindow(const QString& path, const QString& password, const QByte
     applyTheme(data_.settings.theme);
     updateStats();
 
-    // smooth window fade-in (windowOpacity is safe for top-level windows)
+    // smooth window fade-in
     setWindowOpacity(0.0);
     auto* wa = new QPropertyAnimation(this, "windowOpacity", this);
     wa->setDuration(240);
@@ -125,12 +121,12 @@ MainWindow::MainWindow(const QString& path, const QString& password, const QByte
     wa->start(QAbstractAnimation::DeleteWhenStopped);
 }
 
-QIcon MainWindow::avatarFor(const QString& type) const {
+QIcon MainWindow::avatarFor(const vault::Entry& e) const {
     QPixmap pm(40, 40);
     pm.fill(Qt::transparent);
     QPainter p(&pm);
     p.setRenderHint(QPainter::Antialiasing);
-    QColor c = typeColor(type);
+    QColor c = entryColor(e);
     QColor bg = c;
     bg.setAlpha(38);
     QPainterPath path;
@@ -140,9 +136,9 @@ QIcon MainWindow::avatarFor(const QString& type) const {
     p.drawPath(path);
     p.setPen(c);
     QFont f = p.font();
-    f.setPixelSize(19);
+    f.setPixelSize(18);
     p.setFont(f);
-    p.drawText(QRect(2, 2, 36, 36), Qt::AlignCenter, iconFor(type));
+    p.drawText(QRect(2, 2, 36, 36), Qt::AlignCenter, entryIcon(e));
     p.end();
     return QIcon(pm);
 }
@@ -156,14 +152,19 @@ void MainWindow::buildUi() {
     h->setContentsMargins(0, 0, 0, 0);
     h->setSpacing(0);
 
-    // sidebar
-    sidebar_ = new QWidget(central);
-    sidebar_->setObjectName("sidebar");
-    sidebar_->setFixedWidth(210);
+    // sidebar (scrollable — it now holds all types, folders and tags)
+    auto* sideScroll = new QScrollArea(central);
+    sideScroll->setObjectName("sidebar");
+    sideScroll->setWidgetResizable(true);
+    sideScroll->setFixedWidth(224);
+    sideScroll->setFrameShape(QFrame::NoFrame);
+    sideScroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    sidebar_ = new QWidget();
     sidebarLayout_ = new QVBoxLayout(sidebar_);
     sidebarLayout_->setContentsMargins(10, 14, 10, 14);
     sidebarLayout_->setSpacing(2);
-    h->addWidget(sidebar_);
+    sideScroll->setWidget(sidebar_);
+    h->addWidget(sideScroll);
 
     // middle column
     auto* mid = new QWidget(central);
@@ -184,6 +185,7 @@ void MainWindow::buildUi() {
     sortCombo_ = new QComboBox(mid);
     sortCombo_->addItem("Recent", "used");
     sortCombo_->addItem("Updated", "updated");
+    sortCombo_->addItem("Created", "created");
     sortCombo_->addItem("Title", "title");
     sortCombo_->setToolTip("Sort");
     connect(sortCombo_, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this] { rebuildList(); });
@@ -192,33 +194,44 @@ void MainWindow::buildUi() {
     auto* newBtn = new QPushButton("＋ New", mid);
     newBtn->setObjectName("accent");
     auto* newMenu = new QMenu(newBtn);
-    struct { const char* label; const char* type; } types[] = {
-        {"🔑  Login", "login"}, {"🛡️  2FA code", "totp"}, {"📝  Secure note", "note"},
-        {"💳  Card", "card"}, {"🪪  Identity", "identity"}};
-    for (auto& t : types) {
-        QString ty = t.type;
-        newMenu->addAction(t.label, this, [this, ty] { newEntry(ty); });
+    QString lastGroup;
+    for (const auto& ty : vault::types()) {
+        QString id = ty.id;
+        newMenu->addAction(ty.icon + "  " + ty.label, this, [this, id] { newEntry(id); });
     }
     newBtn->setMenu(newMenu);
     top->addWidget(newBtn);
 
-    auto* genBtn = new QPushButton("🎲", mid);
-    genBtn->setToolTip("Generator (Ctrl+G)");
-    connect(genBtn, &QPushButton::clicked, this, &MainWindow::openGenerator);
-    top->addWidget(genBtn);
-    auto* audBtn = new QPushButton("🛡", mid);
-    audBtn->setToolTip("Security audit");
-    connect(audBtn, &QPushButton::clicked, this, &MainWindow::openAudit);
-    top->addWidget(audBtn);
-    auto* setBtn = new QPushButton("⚙", mid);
-    setBtn->setToolTip("Settings");
-    connect(setBtn, &QPushButton::clicked, this, &MainWindow::openSettings);
-    top->addWidget(setBtn);
-    auto* lockBtn = new QPushButton("🔒", mid);
-    lockBtn->setToolTip("Lock (Ctrl+L)");
-    connect(lockBtn, &QPushButton::clicked, this, &MainWindow::lock);
-    top->addWidget(lockBtn);
+    auto ghost = [&](const QString& glyph, const QString& tip, auto slot) {
+        auto* b = new QPushButton(glyph, mid);
+        b->setToolTip(tip);
+        connect(b, &QPushButton::clicked, this, slot);
+        top->addWidget(b);
+        return b;
+    };
+    ghost("⌘K", "Command palette (Ctrl+K)", [this] { openCommandPalette(); });
+    ghost("🎲", "Generator (Ctrl+G)", [this] { openGenerator(); });
+    ghost("📊", "Dashboard", [this] { openStats(); });
+    ghost("🛡", "Security audit", [this] { openAudit(); });
+
+    auto* moreBtn = new QPushButton("⋯", mid);
+    moreBtn->setToolTip("More");
+    auto* moreMenu = new QMenu(moreBtn);
+    moreMenu->addAction("Import items…", this, [this] { importItems(); });
+    moreMenu->addAction("Export items…", this, [this] { exportItems(); });
+    moreMenu->addSeparator();
+    moreMenu->addAction("Choose theme…", this, [this] { pickTheme(); });
+    moreMenu->addAction("Settings", this, [this] { openSettings(); });
+    moreMenu->addAction("About Vault", this, [this] { openAbout(); });
+    moreBtn->setMenu(moreMenu);
+    top->addWidget(moreBtn);
+
+    ghost("🔒", "Lock (Ctrl+L)", [this] { lock(); });
     mv->addLayout(top);
+
+    crumbLabel_ = new QLabel(mid);
+    crumbLabel_->setObjectName("h3");
+    mv->addWidget(crumbLabel_);
 
     statsLabel_ = new QLabel(mid);
     statsLabel_->setObjectName("muted");
@@ -242,7 +255,7 @@ void MainWindow::buildUi() {
     auto* scroll = new QScrollArea(central);
     scroll->setObjectName("detail");
     scroll->setWidgetResizable(true);
-    scroll->setFixedWidth(380);
+    scroll->setFixedWidth(392);
     scroll->setFrameShape(QFrame::NoFrame);
     detail_ = new QWidget();
     detailLayout_ = new QVBoxLayout(detail_);
@@ -251,13 +264,71 @@ void MainWindow::buildUi() {
     detailLayout_->addStretch();
     scroll->setWidget(detail_);
     h->addWidget(scroll);
-    fx::shadow(scroll, 48, 0, 70);
 
     setCentralWidget(central);
 }
 
+void MainWindow::buildMenuBar() {
+    auto* mb = menuBar();
+
+    auto* file = mb->addMenu("&File");
+    auto* newMenu = file->addMenu("New item");
+    for (const auto& ty : vault::types()) {
+        QString id = ty.id;
+        newMenu->addAction(ty.icon + "  " + ty.label, this, [this, id] { newEntry(id); });
+    }
+    file->addSeparator();
+    file->addAction("Import…", this, [this] { importItems(); });
+    file->addAction("Export…", this, [this] { exportItems(); });
+    file->addAction("Encrypted backup…", this, &MainWindow::exportBackup);
+    file->addSeparator();
+    file->addAction("Lock", QKeySequence("Ctrl+L"), this, &MainWindow::lock);
+    file->addAction("Quit", QKeySequence("Ctrl+Q"), this, [this] { quitting_ = true; qApp->quit(); });
+
+    auto* view = mb->addMenu("&View");
+    auto jump = [this](const QString& key) { filter_ = key; rebuildSidebar(); rebuildList(); };
+    view->addAction("All items", this, [jump] { jump("all"); });
+    view->addAction("Favorites", this, [jump] { jump("favorites"); });
+    view->addAction("Recently used", this, [jump] { jump("recent"); });
+    view->addSeparator();
+    view->addAction("Trash", this, [jump] { jump("trash"); });
+    view->addAction("Empty Trash…", this, &MainWindow::emptyTrash);
+    view->addSeparator();
+    view->addAction("Command palette", QKeySequence("Ctrl+K"), this, &MainWindow::openCommandPalette);
+
+    auto* tools = mb->addMenu("&Tools");
+    tools->addAction("Password generator", QKeySequence("Ctrl+G"), this, &MainWindow::openGenerator);
+    tools->addAction("Security audit", this, &MainWindow::openAudit);
+    tools->addAction("Dashboard", QKeySequence("Ctrl+D"), this, &MainWindow::openStats);
+    tools->addSeparator();
+    tools->addAction("Manage folders…", this, &MainWindow::manageFolders);
+    tools->addAction("Choose theme…", this, &MainWindow::pickTheme);
+    tools->addAction("Change master password…", this, &MainWindow::changeMaster);
+    tools->addSeparator();
+    tools->addAction("Settings", this, &MainWindow::openSettings);
+
+    auto* help = mb->addMenu("&Help");
+    help->addAction("About Vault", this, &MainWindow::openAbout);
+    help->addAction("Open vault folder", this, &MainWindow::openVaultFolder);
+}
+
+void MainWindow::manageFolders() {
+    FolderManagerDialog d(data_.folders, this);
+    if (d.exec() != QDialog::Accepted) return;
+    QVector<vault::Folder> updated = d.folders();
+    // any entries whose folder was removed fall back to "no folder"
+    QStringList ids;
+    for (const auto& f : updated) ids << f.id;
+    for (auto& e : data_.entries)
+        if (!e.folder.isEmpty() && !ids.contains(e.folder)) e.folder.clear();
+    data_.folders = updated;
+    if (filter_.startsWith("folder:") && !ids.contains(filter_.mid(7))) filter_ = "all";
+    persist();
+    rebuildSidebar();
+    rebuildList();
+}
+
 void MainWindow::rebuildSidebar() {
-    // clear
     QLayoutItem* item;
     while ((item = sidebarLayout_->takeAt(0)) != nullptr) {
         if (item->widget()) item->widget()->deleteLater();
@@ -266,10 +337,13 @@ void MainWindow::rebuildSidebar() {
     auto countFor = [this](const QString& key) {
         int n = 0;
         for (const auto& e : data_.entries) {
+            if (key == "trash") { if (e.trashed) n++; continue; }
+            if (e.trashed) continue;
             if (key == "all") n++;
             else if (key == "favorites") { if (e.favorite) n++; }
             else if (key == "recent") { if (e.usedAt > 0) n++; }
             else if (key.startsWith("folder:")) { if (e.folder == key.mid(7)) n++; }
+            else if (key.startsWith("tag:")) { if (e.tags.contains(key.mid(4))) n++; }
             else if (e.type == key) n++;
         }
         return n;
@@ -287,38 +361,69 @@ void MainWindow::rebuildSidebar() {
         });
         sidebarLayout_->addWidget(b);
     };
-    struct Nav { QString key; QString label; };
-    QVector<Nav> navs = {
-        {"all", "🗂  All items"}, {"favorites", "★  Favorites"}, {"recent", "🕘  Recent"},
-        {"login", "🔑  Logins"}, {"totp", "🛡  2FA codes"}, {"note", "📝  Notes"},
-        {"card", "💳  Cards"}, {"identity", "🪪  Identities"}};
-    for (const auto& n : navs) addBtn(n.key, n.label);
+    auto addLabel = [this](const QString& text) {
+        auto* lbl = new QLabel(text, sidebar_);
+        lbl->setObjectName("label");
+        lbl->setContentsMargins(10, 12, 0, 4);
+        sidebarLayout_->addWidget(lbl);
+    };
+
+    addBtn("all", "🗂  All items");
+    addBtn("favorites", "★  Favorites");
+    addBtn("recent", "🕘  Recently used");
+
+    // types with at least one item, plus the common ones always
+    addLabel("TYPES");
+    for (const auto& ty : vault::types()) {
+        if (countFor(ty.id) > 0 || ty.id == "login" || ty.id == "note")
+            addBtn(ty.id, ty.icon + "  " + ty.label + "s");
+    }
 
     if (!data_.folders.isEmpty()) {
-        auto* lbl = new QLabel("FOLDERS", sidebar_);
-        lbl->setObjectName("label");
-        lbl->setContentsMargins(10, 10, 0, 4);
-        sidebarLayout_->addWidget(lbl);
+        addLabel("FOLDERS");
         for (const auto& f : data_.folders) addBtn("folder:" + f.id, f.icon + "  " + f.name);
     }
+
+    // tags (unique, from non-trashed entries)
+    QStringList tags;
+    for (const auto& e : data_.entries) {
+        if (e.trashed) continue;
+        for (const QString& t : e.tags)
+            if (!tags.contains(t)) tags << t;
+    }
+    tags.sort(Qt::CaseInsensitive);
+    if (!tags.isEmpty()) {
+        addLabel("TAGS");
+        for (const QString& t : tags) addBtn("tag:" + t, "#  " + t);
+    }
+
+    addLabel("");
+    addBtn("trash", "🗑  Trash");
     sidebarLayout_->addStretch();
 }
 
 void MainWindow::rebuildList() {
     list_->clear();
     const QString q = search_.trimmed().toLower();
-    const QStringList terms = q.split(' ', Qt::SkipEmptyParts);  // all-terms match
+    const QStringList terms = q.split(' ', Qt::SkipEmptyParts);
 
     QVector<const vault::Entry*> rows;
     for (const auto& e : data_.entries) {
-        if (filter_ == "favorites") { if (!e.favorite) continue; }
-        else if (filter_ == "recent") { if (e.usedAt <= 0) continue; }
-        else if (filter_.startsWith("folder:")) { if (e.folder != filter_.mid(7)) continue; }
-        else if (filter_ != "all") { if (e.type != filter_) continue; }
+        if (filter_ == "trash") {
+            if (!e.trashed) continue;
+        } else {
+            if (e.trashed) continue;
+            if (filter_ == "favorites") { if (!e.favorite) continue; }
+            else if (filter_ == "recent") { if (e.usedAt <= 0) continue; }
+            else if (filter_.startsWith("folder:")) { if (e.folder != filter_.mid(7)) continue; }
+            else if (filter_.startsWith("tag:")) { if (!e.tags.contains(filter_.mid(4))) continue; }
+            else if (filter_ != "all") { if (e.type != filter_) continue; }
+        }
         if (!terms.isEmpty()) {
             const QString hay = (e.title + " " + e.username + " " + e.url + " " + e.email + " " +
                                  e.notes + " " + e.otpIssuer + " " + e.cardholder + " " + e.fullName + " " +
-                                 e.tags.join(" ")).toLower();
+                                 e.wifiSsid + " " + e.serverHost + " " + e.bankName + " " + e.walletType + " " +
+                                 e.licenseOwner + " " + e.tags.join(" ")).toLower();
             bool all = true;
             for (const QString& t : terms) if (!hay.contains(t)) { all = false; break; }
             if (!all) continue;
@@ -329,22 +434,39 @@ void MainWindow::rebuildList() {
     const QString sortKey = sortCombo_ ? sortCombo_->currentData().toString() : "updated";
     std::sort(rows.begin(), rows.end(), [&](const vault::Entry* a, const vault::Entry* b) {
         if (sortKey == "title") return a->title.compare(b->title, Qt::CaseInsensitive) < 0;
+        if (sortKey == "created") return a->created > b->created;
         if (sortKey == "used") return (a->usedAt ? a->usedAt : a->updated) > (b->usedAt ? b->usedAt : b->updated);
         return a->updated > b->updated;
     });
 
+    const bool compact = data_.settings.compactList;
+    const bool badges = data_.settings.showStrengthBadges;
     for (const vault::Entry* e : rows) {
-        QString sub = e->type == "login" ? (e->username.isEmpty() ? vault::domainOf(e->url) : e->username)
-                      : e->type == "card" ? (e->cardNumber.isEmpty() ? e->cardBrand : "•••• " + e->cardNumber.right(4))
-                      : e->type == "identity" ? e->email
-                      : e->type == "totp" ? e->otpIssuer
-                                           : e->notes.left(40);
-        auto* it = new QListWidgetItem(avatarFor(e->type),
-                                       QString("%1%2\n%3").arg(e->title.isEmpty() ? "—" : e->title,
-                                                               e->favorite ? "   ★" : "", sub));
+        QString sub = vault::subtitleFor(*e);
+        QString badge;
+        if (badges && vault::typeHasPassword(e->type) && !e->password.isEmpty() &&
+            vc::analyzeStrength(e->password.toStdString()).score <= 1)
+            badge = "  ⚠";
+        QString text = compact
+                           ? QString("%1%2   %3").arg(e->title.isEmpty() ? "—" : e->title,
+                                                      e->favorite ? "  ★" : "", sub)
+                           : QString("%1%2%3\n%4").arg(e->title.isEmpty() ? "—" : e->title,
+                                                       e->favorite ? "   ★" : "", badge, sub);
+        auto* it = new QListWidgetItem(avatarFor(*e), text);
         it->setData(Qt::UserRole, e->id);
         list_->addItem(it);
     }
+
+    // breadcrumb
+    QString crumb = filter_ == "all"       ? "All items"
+                    : filter_ == "favorites" ? "Favorites"
+                    : filter_ == "recent"    ? "Recently used"
+                    : filter_ == "trash"     ? "Trash"
+                    : filter_.startsWith("folder:") ? "Folder"
+                    : filter_.startsWith("tag:")    ? "#" + filter_.mid(4)
+                                                    : vault::typeLabel(filter_) + "s";
+    if (crumbLabel_) crumbLabel_->setText(QString("%1  ·  %2").arg(crumb).arg(rows.size()));
+
     if (list_->count() > 0) list_->setCurrentRow(0);
     else showDetail(QString());
 }
@@ -377,11 +499,37 @@ void MainWindow::addDetailRow(QVBoxLayout* v, const QString& label, const QStrin
     v->addLayout(row);
 }
 
+void MainWindow::addTotpRow(QVBoxLayout* v, const QString& secret) {
+    if (secret.isEmpty()) return;
+    auto* l = new QLabel("2FA CODE", detail_);
+    l->setObjectName("label");
+    v->addWidget(l);
+    totpLabel_ = new QLabel("…", detail_);
+    totpLabel_->setObjectName("code");
+    totpSecretForDetail_ = secret;
+    auto* row = new QHBoxLayout();
+    row->addWidget(totpLabel_, 1);
+    auto* cp = new QPushButton("⧉", detail_);
+    cp->setObjectName("ghost");
+    cp->setFixedWidth(34);
+    connect(cp, &QPushButton::clicked, this, [this] {
+        vc::OtpAuth p = vc::parseOtpAuth(totpSecretForDetail_.toStdString());
+        if (!p.secret.empty()) { int r; copyValue(QString::fromStdString(vc::totp(p.secret, QDateTime::currentSecsSinceEpoch(), p.digits, p.period, r))); }
+    });
+    row->addWidget(cp);
+    v->addLayout(row);
+}
+
+void MainWindow::addCustomFieldRows(QVBoxLayout* v, const vault::Entry& e) {
+    if (e.customFields.isEmpty()) return;
+    for (const auto& f : e.customFields)
+        addDetailRow(v, f.label.isEmpty() ? "Field" : f.label, f.value, true, f.secret);
+}
+
 void MainWindow::showDetail(const QString& id) {
     selectedId_ = id;
     totpLabel_ = nullptr;
     totpSecretForDetail_.clear();
-    // clear
     QLayoutItem* item;
     while ((item = detailLayout_->takeAt(0)) != nullptr) {
         if (item->widget()) item->widget()->deleteLater();
@@ -406,7 +554,7 @@ void MainWindow::showDetail(const QString& id) {
 
     // header
     auto* head = new QHBoxLayout();
-    auto* title = new QLabel(QString("%1 %2").arg(iconFor(e->type), e->title), detail_);
+    auto* title = new QLabel(QString("%1 %2").arg(entryIcon(*e), e->title), detail_);
     title->setObjectName("h2");
     title->setWordWrap(true);
     head->addWidget(title, 1);
@@ -418,13 +566,28 @@ void MainWindow::showDetail(const QString& id) {
     head->addWidget(fav);
     detailLayout_->addLayout(head);
 
-    if (e->type == "login") {
+    auto* typeTag = new QLabel(vault::typeLabel(e->type).toUpper(), detail_);
+    typeTag->setObjectName("label");
+    detailLayout_->addWidget(typeTag);
+
+    // expiry banner
+    if (e->expiresAt > 0) {
+        const qint64 now = QDateTime::currentMSecsSinceEpoch();
+        QString when = QDateTime::fromMSecsSinceEpoch(e->expiresAt).toString("yyyy-MM-dd");
+        bool expired = e->expiresAt < now;
+        auto* ex = new QLabel(QString("<span style='color:%1'>%2 %3</span>")
+                                  .arg(expired ? "#ef4444" : "#eab308",
+                                       expired ? "⚠ Expired" : "⏳ Expires", when), detail_);
+        detailLayout_->addWidget(ex);
+    }
+
+    const QString t = e->type;
+    if (t == "login") {
         addDetailRow(detailLayout_, "Username", e->username, true);
         addDetailRow(detailLayout_, "Password", e->password, true, true);
         addDetailRow(detailLayout_, "Website", e->url, true);
         if (!e->url.isEmpty()) {
-            QString url = e->url;
-            QString pw = e->password;
+            QString url = e->url, pw = e->password;
             auto* openRow = new QHBoxLayout();
             auto* open = new QPushButton("Open website ↗", detail_);
             connect(open, &QPushButton::clicked, this, [url] { QDesktopServices::openUrl(QUrl(url.contains("://") ? url : "https://" + url)); });
@@ -440,69 +603,104 @@ void MainWindow::showDetail(const QString& id) {
             }
             detailLayout_->addLayout(openRow);
         }
-        if (!e->totp.isEmpty()) {
-            auto* l = new QLabel("2FA CODE", detail_);
-            l->setObjectName("label");
-            detailLayout_->addWidget(l);
-            totpLabel_ = new QLabel("…", detail_);
-            totpLabel_->setObjectName("code");
-            totpSecretForDetail_ = e->totp;
-            auto* row = new QHBoxLayout();
-            row->addWidget(totpLabel_, 1);
-            auto* cp = new QPushButton("⧉", detail_);
-            cp->setObjectName("ghost");
-            cp->setFixedWidth(34);
-            connect(cp, &QPushButton::clicked, this, [this] {
-                vc::OtpAuth p = vc::parseOtpAuth(totpSecretForDetail_.toStdString());
-                if (!p.secret.empty()) { int r; copyValue(QString::fromStdString(vc::totp(p.secret, QDateTime::currentSecsSinceEpoch(), p.digits, p.period, r))); }
-            });
-            row->addWidget(cp);
-            detailLayout_->addLayout(row);
-        }
-    } else if (e->type == "note") {
+        addTotpRow(detailLayout_, e->totp);
+    } else if (t == "note") {
         auto* n = new QLabel(e->notes, detail_);
         n->setWordWrap(true);
         n->setTextInteractionFlags(Qt::TextSelectableByMouse);
         detailLayout_->addWidget(n);
-    } else if (e->type == "card") {
+    } else if (t == "card") {
         addDetailRow(detailLayout_, "Cardholder", e->cardholder, true);
         addDetailRow(detailLayout_, QString("Number%1").arg(e->cardBrand.isEmpty() ? "" : " · " + e->cardBrand), e->cardNumber, true, true);
         addDetailRow(detailLayout_, "Expiry", e->cardExpiry, true);
         addDetailRow(detailLayout_, "CVV", e->cardCvv, true, true);
-    } else if (e->type == "identity") {
+        addDetailRow(detailLayout_, "PIN", e->cardPin, true, true);
+    } else if (t == "identity") {
         addDetailRow(detailLayout_, "Full name", e->fullName, true);
         addDetailRow(detailLayout_, "Email", e->email, true);
         addDetailRow(detailLayout_, "Phone", e->phone, true);
         addDetailRow(detailLayout_, "Address", e->address, true);
-    } else if (e->type == "totp") {
-        auto* l = new QLabel("2FA CODE", detail_);
-        l->setObjectName("label");
-        detailLayout_->addWidget(l);
-        totpLabel_ = new QLabel("…", detail_);
-        totpLabel_->setObjectName("code");
-        totpSecretForDetail_ = e->otpSecret;
-        detailLayout_->addWidget(totpLabel_);
+    } else if (t == "totp") {
+        addTotpRow(detailLayout_, e->otpSecret);
+        addDetailRow(detailLayout_, "Issuer", e->otpIssuer, true);
+    } else if (t == "ssh") {
+        addDetailRow(detailLayout_, "User", e->username, true);
+        addDetailRow(detailLayout_, "Host", e->url, true);
+        addDetailRow(detailLayout_, "Passphrase", e->password, true, true);
+        addDetailRow(detailLayout_, "Public key", e->sshPublicKey, true);
+        addDetailRow(detailLayout_, "Private key", e->sshPrivateKey, true, true);
+    } else if (t == "api") {
+        addDetailRow(detailLayout_, "Endpoint", e->url, true);
+        addDetailRow(detailLayout_, "API key", e->apiKey, true, true);
+        addDetailRow(detailLayout_, "API secret", e->apiSecret, true, true);
+    } else if (t == "wifi") {
+        addDetailRow(detailLayout_, "Network", e->wifiSsid, true);
+        addDetailRow(detailLayout_, "Security", e->wifiSecurity, false);
+        addDetailRow(detailLayout_, "Password", e->password, true, true);
+    } else if (t == "bank") {
+        addDetailRow(detailLayout_, "Bank", e->bankName, true);
+        addDetailRow(detailLayout_, "Account holder", e->cardholder, true);
+        addDetailRow(detailLayout_, "Account number", e->accountNumber, true, true);
+        addDetailRow(detailLayout_, "Routing / sort", e->routingNumber, true);
+        addDetailRow(detailLayout_, "IBAN", e->iban, true, true);
+        addDetailRow(detailLayout_, "SWIFT / BIC", e->swift, true);
+        addDetailRow(detailLayout_, "PIN / access", e->password, true, true);
+    } else if (t == "crypto") {
+        addDetailRow(detailLayout_, "Network / wallet", e->walletType, true);
+        addDetailRow(detailLayout_, "Public address", e->walletAddress, true);
+        addDetailRow(detailLayout_, "Recovery phrase", e->walletSeed, true, true);
+        addDetailRow(detailLayout_, "Spending password", e->password, true, true);
+    } else if (t == "server") {
+        addDetailRow(detailLayout_, "Host", e->serverHost, true);
+        addDetailRow(detailLayout_, "Port", e->serverPort, true);
+        addDetailRow(detailLayout_, "User", e->username, true);
+        addDetailRow(detailLayout_, "Password", e->password, true, true);
+        addDetailRow(detailLayout_, "Database", e->dbName, true);
+    } else if (t == "license") {
+        addDetailRow(detailLayout_, "Licensed to", e->licenseOwner, true);
+        addDetailRow(detailLayout_, "Licence key", e->licenseKey, true, true);
+        addDetailRow(detailLayout_, "Vendor", e->url, true);
     }
 
-    if (!e->notes.isEmpty() && e->type != "note") {
+    addCustomFieldRows(detailLayout_, *e);
+
+    if (!e->notes.isEmpty() && t != "note")
         addDetailRow(detailLayout_, "Notes", e->notes, false);
-    }
     if (!e->tags.isEmpty()) {
         auto* tags = new QLabel("#" + e->tags.join("  #"), detail_);
         tags->setObjectName("muted");
         detailLayout_->addWidget(tags);
     }
 
+    // password history
+    if (vault::typeHasPassword(t) && !e->passwordHistory.isEmpty()) {
+        auto* hist = new QPushButton(QString("Password history (%1)").arg(e->passwordHistory.size()), detail_);
+        hist->setObjectName("chip");
+        connect(hist, &QPushButton::clicked, this, [this, id2] { showHistory(id2); });
+        detailLayout_->addWidget(hist, 0, Qt::AlignLeft);
+    }
+
     // actions
     auto* actions = new QHBoxLayout();
-    auto* edit = new QPushButton("Edit", detail_);
-    edit->setObjectName("accent");
-    connect(edit, &QPushButton::clicked, this, [this, id2] { editEntry(id2); });
-    auto* del = new QPushButton("Delete", detail_);
-    del->setObjectName("danger");
-    connect(del, &QPushButton::clicked, this, [this, id2] { deleteEntry(id2); });
-    actions->addWidget(edit, 1);
-    actions->addWidget(del);
+    if (e->trashed) {
+        auto* rest = new QPushButton("Restore", detail_);
+        rest->setObjectName("accent");
+        connect(rest, &QPushButton::clicked, this, [this, id2] { restoreEntry(id2); });
+        auto* purge = new QPushButton("Delete forever", detail_);
+        purge->setObjectName("danger");
+        connect(purge, &QPushButton::clicked, this, [this, id2] { purgeEntry(id2); });
+        actions->addWidget(rest, 1);
+        actions->addWidget(purge);
+    } else {
+        auto* edit = new QPushButton("Edit", detail_);
+        edit->setObjectName("accent");
+        connect(edit, &QPushButton::clicked, this, [this, id2] { editEntry(id2); });
+        auto* del = new QPushButton("Delete", detail_);
+        del->setObjectName("danger");
+        connect(del, &QPushButton::clicked, this, [this, id2] { deleteEntry(id2); });
+        actions->addWidget(edit, 1);
+        actions->addWidget(del);
+    }
     detailLayout_->addLayout(actions);
     detailLayout_->addStretch();
 
@@ -528,6 +726,7 @@ void MainWindow::newEntry(const QString& type) {
     if (d.exec() == QDialog::Accepted) {
         data_.entries.prepend(d.result());
         persist();
+        rebuildSidebar();
         rebuildList();
     }
 }
@@ -541,16 +740,54 @@ void MainWindow::editEntry(const QString& id) {
         for (auto& x : data_.entries)
             if (x.id == id) { x = updated; break; }
         persist();
+        rebuildSidebar();
         rebuildList();
         showDetail(id);
     }
 }
 
 void MainWindow::deleteEntry(const QString& id) {
-    if (QMessageBox::question(this, "Delete", "Delete this item permanently?") != QMessageBox::Yes) return;
+    if (data_.settings.confirmDelete &&
+        QMessageBox::question(this, "Move to Trash", "Move this item to the Trash?") != QMessageBox::Yes)
+        return;
+    for (auto& e : data_.entries)
+        if (e.id == id) { e.trashed = true; e.trashedAt = QDateTime::currentMSecsSinceEpoch(); break; }
+    persist();
+    rebuildSidebar();
+    rebuildList();
+}
+
+void MainWindow::restoreEntry(const QString& id) {
+    for (auto& e : data_.entries)
+        if (e.id == id) { e.trashed = false; e.trashedAt = 0; break; }
+    persist();
+    rebuildSidebar();
+    rebuildList();
+}
+
+void MainWindow::purgeEntry(const QString& id) {
+    if (QMessageBox::warning(this, "Delete forever", "Permanently delete this item? This cannot be undone.",
+                             QMessageBox::Yes | QMessageBox::No) != QMessageBox::Yes)
+        return;
     for (int i = 0; i < data_.entries.size(); ++i)
         if (data_.entries[i].id == id) { data_.entries.remove(i); break; }
     persist();
+    rebuildSidebar();
+    rebuildList();
+}
+
+void MainWindow::emptyTrash() {
+    int n = 0;
+    for (const auto& e : data_.entries) if (e.trashed) n++;
+    if (n == 0) { QMessageBox::information(this, "Trash", "The Trash is already empty."); return; }
+    if (QMessageBox::warning(this, "Empty Trash", QString("Permanently delete %1 item(s)?").arg(n),
+                             QMessageBox::Yes | QMessageBox::No) != QMessageBox::Yes)
+        return;
+    QVector<vault::Entry> kept;
+    for (const auto& e : data_.entries) if (!e.trashed) kept.append(e);
+    data_.entries = kept;
+    persist();
+    rebuildSidebar();
     rebuildList();
 }
 
@@ -562,23 +799,166 @@ void MainWindow::toggleFavorite(const QString& id) {
     showDetail(id);
 }
 
+void MainWindow::showHistory(const QString& id) {
+    const vault::Entry* e = findEntry(id);
+    if (!e) return;
+    PasswordHistoryDialog d(e->title, e->passwordHistory, this);
+    connect(&d, &PasswordHistoryDialog::copyRequested, this, [this](const QString& v) { copyValue(v); });
+    if (d.exec() == QDialog::Accepted && !d.restored().isEmpty()) {
+        for (auto& x : data_.entries)
+            if (x.id == id) {
+                if (!x.password.isEmpty()) x.passwordHistory.prepend(x.password);
+                x.password = d.restored();
+                x.updated = QDateTime::currentMSecsSinceEpoch();
+                break;
+            }
+        persist();
+        showDetail(id);
+    }
+}
+
 void MainWindow::openGenerator() {
     QDialog d(this);
     d.setWindowTitle("Password generator");
-    d.setMinimumWidth(440);
+    d.setMinimumWidth(460);
     auto* v = new QVBoxLayout(&d);
     v->addWidget(new GeneratorWidget(&d, false));
     d.exec();
 }
 
 void MainWindow::openAudit() {
-    AuditDialog d(vault::audit(data_.entries), this);
+    AuditDialog d(vault::audit(data_.entries, data_.settings.passwordAgeDays), this);
     d.exec();
+}
+
+void MainWindow::openStats() {
+    StatsDialog d(data_, this);
+    d.exec();
+}
+
+void MainWindow::openAbout() {
+    AboutDialog d(this);
+    d.exec();
+}
+
+void MainWindow::pickTheme() {
+    ThemePickerDialog d(data_.settings.theme, this);
+    connect(&d, &ThemePickerDialog::preview, this, [this](const QString& id) { applyTheme(id); });
+    if (d.exec() == QDialog::Accepted) {
+        data_.settings.theme = d.selected();
+        persist();
+    }
+    applyTheme(data_.settings.theme);
+}
+
+void MainWindow::openCommandPalette() {
+    QVector<CommandPalette::Item> items;
+    // actions
+    items.append({"action", "new-login", "New login", "Create a new login", "🔑"});
+    items.append({"action", "new-note", "New secure note", "Create a note", "📝"});
+    items.append({"action", "new-card", "New payment card", "", "💳"});
+    items.append({"action", "generator", "Password generator", "", "🎲"});
+    items.append({"action", "audit", "Security audit", "", "🛡"});
+    items.append({"action", "stats", "Dashboard", "Vault statistics & health", "📊"});
+    items.append({"action", "theme", "Choose theme", "Change the colour palette", "🎨"});
+    items.append({"action", "import", "Import items", "", "📥"});
+    items.append({"action", "export", "Export items", "", "📤"});
+    items.append({"action", "settings", "Settings", "", "⚙"});
+    items.append({"action", "lock", "Lock vault", "", "🔒"});
+    items.append({"action", "trash", "Open Trash", "", "🗑"});
+    // entries
+    for (const auto& e : data_.entries) {
+        if (e.trashed) continue;
+        items.append({"entry", e.id, e.title, vault::typeLabel(e.type) + " · " + vault::subtitleFor(e), entryIcon(e)});
+    }
+
+    CommandPalette pal(items, this);
+    connect(&pal, &CommandPalette::chosen, this, [this](const QString& kind, const QString& id) {
+        if (kind == "entry") {
+            filter_ = "all";
+            search_.clear();
+            if (searchEdit_) searchEdit_->clear();
+            rebuildSidebar();
+            rebuildList();
+            for (int i = 0; i < list_->count(); ++i)
+                if (list_->item(i)->data(Qt::UserRole).toString() == id) { list_->setCurrentRow(i); break; }
+        } else {
+            if (id == "new-login") newEntry("login");
+            else if (id == "new-note") newEntry("note");
+            else if (id == "new-card") newEntry("card");
+            else if (id == "generator") openGenerator();
+            else if (id == "audit") openAudit();
+            else if (id == "stats") openStats();
+            else if (id == "theme") pickTheme();
+            else if (id == "import") importItems();
+            else if (id == "export") exportItems();
+            else if (id == "settings") openSettings();
+            else if (id == "lock") lock();
+            else if (id == "trash") { filter_ = "trash"; rebuildSidebar(); rebuildList(); }
+        }
+    });
+    pal.exec();
+}
+
+void MainWindow::importItems() {
+    QString src = QFileDialog::getOpenFileName(this, "Import items", QString(),
+                                               "Data files (*.json *.csv);;JSON (*.json);;CSV (*.csv)");
+    if (src.isEmpty()) return;
+    QFile f(src);
+    if (!f.open(QIODevice::ReadOnly)) { QMessageBox::warning(this, "Import", "Could not read that file."); return; }
+    QByteArray raw = f.readAll();
+    QVector<vault::Entry> imported;
+    QString err;
+    bool ok = src.endsWith(".csv", Qt::CaseInsensitive)
+                  ? vault::importCsv(raw, imported, err)
+                  : vault::importPlaintextJson(raw, imported, err);
+    if (!ok) { QMessageBox::warning(this, "Import", err); return; }
+    if (QMessageBox::question(this, "Import",
+                              QString("Import %1 item(s) into your vault?").arg(imported.size())) != QMessageBox::Yes)
+        return;
+    for (auto& e : imported) data_.entries.prepend(e);
+    persist();
+    rebuildSidebar();
+    rebuildList();
+    QMessageBox::information(this, "Import", QString("Imported %1 item(s).").arg(imported.size()));
+}
+
+void MainWindow::exportItems() {
+    QMessageBox box(this);
+    box.setWindowTitle("Export items");
+    box.setIcon(QMessageBox::Warning);
+    box.setText("Exports are UNENCRYPTED plaintext.\nAnyone with the file can read every secret.");
+    box.setInformativeText("Choose a format, or Cancel.");
+    auto* json = box.addButton("Export JSON", QMessageBox::AcceptRole);
+    auto* csv = box.addButton("Export CSV (logins)", QMessageBox::AcceptRole);
+    box.addButton(QMessageBox::Cancel);
+    box.exec();
+    QAbstractButton* clicked = box.clickedButton();
+    if (clicked != json && clicked != csv) return;
+
+    const bool asCsv = (clicked == csv);
+    QString suffix = asCsv ? "csv" : "json";
+    QString dst = QFileDialog::getSaveFileName(
+        this, "Export items",
+        QDateTime::currentDateTime().toString("'vault-export-'yyyy-MM-dd'." + suffix + "'"),
+        asCsv ? "CSV (*.csv)" : "JSON (*.json)");
+    if (dst.isEmpty()) return;
+    QFile f(dst);
+    if (!f.open(QIODevice::WriteOnly)) { QMessageBox::warning(this, "Export", "Could not write that file."); return; }
+    f.write(asCsv ? vault::exportCsv(data_) : vault::exportPlaintextJson(data_));
+    f.close();
+    QFile::setPermissions(dst, QFile::ReadOwner | QFile::WriteOwner);
+    QMessageBox::information(this, "Export", "Saved. Store or shred it carefully.");
 }
 
 void MainWindow::openSettings() {
     SettingsDialog d(data_.settings, this);
     connect(&d, &SettingsDialog::themePreview, this, [this](const QString& m) { applyTheme(m); });
+    connect(&d, &SettingsDialog::pickThemeRequested, this, [this, &d] {
+        ThemePickerDialog tp(data_.settings.theme, this);
+        connect(&tp, &ThemePickerDialog::preview, this, [this](const QString& id) { applyTheme(id); });
+        tp.exec();
+    });
     connect(&d, &SettingsDialog::changeMasterRequested, this, &MainWindow::changeMaster);
     connect(&d, &SettingsDialog::exportRequested, this, &MainWindow::exportBackup);
     connect(&d, &SettingsDialog::wipeRequested, this, &MainWindow::wipeVault);
@@ -588,6 +968,8 @@ void MainWindow::openSettings() {
         kdfPreset_ = data_.settings.kdf;
         persist();
         applyTheme(data_.settings.theme);
+        rebuildSidebar();
+        rebuildList();
     } else {
         applyTheme(data_.settings.theme);
     }
@@ -628,7 +1010,6 @@ void MainWindow::wipeVault() {
 }
 
 void MainWindow::lock() {
-    // drop secrets from memory, then re-authenticate
     password_.fill('*');
     password_.clear();
     keyfile_.fill('*');
@@ -671,11 +1052,10 @@ void MainWindow::bumpUsed(const QString& id) {
     if (id.isEmpty()) return;
     for (auto& e : data_.entries)
         if (e.id == id) { e.usedAt = QDateTime::currentMSecsSinceEpoch(); break; }
-    // in-memory only; persisted on the next real change / lock / close
 }
 
-void MainWindow::applyTheme(const QString& mode) {
-    qApp->setStyleSheet(theme::qss(mode));
+void MainWindow::applyTheme(const QString& id) {
+    qApp->setStyleSheet(theme::qss(id));
 }
 
 // ---------------------------------------------------------------------------
@@ -687,6 +1067,7 @@ void MainWindow::buildTray() {
     tray_->setToolTip("Vault");
     auto* menu = new QMenu(this);
     menu->addAction("Show", this, [this] { showNormal(); raise(); activateWindow(); });
+    menu->addAction("Command palette", this, [this] { showNormal(); raise(); activateWindow(); openCommandPalette(); });
     menu->addAction("Lock now", this, &MainWindow::lock);
     menu->addSeparator();
     menu->addAction("Quit", this, [this] { quitting_ = true; qApp->quit(); });
@@ -701,12 +1082,11 @@ void MainWindow::buildTray() {
 }
 
 void MainWindow::installShortcuts() {
-    new QShortcut(QKeySequence("Ctrl+L"), this, [this] { lock(); });
+    // Ctrl+K/L/G/D/Q are owned by the menu-bar actions (avoids ambiguous overloads);
+    // these are the extras that have no menu entry.
     new QShortcut(QKeySequence("Ctrl+F"), this, [this] { searchEdit_->setFocus(); searchEdit_->selectAll(); });
-    new QShortcut(QKeySequence("Ctrl+N"), this, [this] { newEntry("login"); });
-    new QShortcut(QKeySequence("Ctrl+G"), this, [this] { openGenerator(); });
+    new QShortcut(QKeySequence("Ctrl+N"), this, [this] { newEntry(data_.settings.defaultNewType); });
     new QShortcut(QKeySequence("Ctrl+Shift+A"), this, [this] { quickCapture(); });
-    new QShortcut(QKeySequence("Ctrl+Q"), this, [this] { quitting_ = true; qApp->quit(); });
 }
 
 void MainWindow::changeEvent(QEvent* e) {
@@ -748,11 +1128,14 @@ void MainWindow::persist() {
 
 void MainWindow::updateStats() {
     if (!statsLabel_) return;
-    int total = data_.entries.size();
+    vault::Stats st = vault::computeStats(data_);
     int weak = 0;
     for (const auto& e : data_.entries)
-        if (e.type == "login" && !e.password.isEmpty() && vc::analyzeStrength(e.password.toStdString()).score <= 1) weak++;
-    statsLabel_->setText(QString("🗂 %1 items%2").arg(total).arg(weak ? QString("   ·   ⚠ %1 weak").arg(weak) : QString("   ·   ✓ healthy")));
+        if (!e.trashed && vault::typeHasPassword(e.type) && !e.password.isEmpty() &&
+            vc::analyzeStrength(e.password.toStdString()).score <= 1) weak++;
+    QString extra = weak ? QString("   ·   ⚠ %1 weak").arg(weak) : QString("   ·   ✓ healthy");
+    if (st.expired + st.expiringSoon > 0) extra += QString("   ·   ⏳ %1 expiring").arg(st.expired + st.expiringSoon);
+    statsLabel_->setText(QString("🗂 %1 items   ·   🛡 %2 with 2FA%3").arg(st.total).arg(st.withTotp).arg(extra));
 }
 
 void MainWindow::duplicateEntry(const QString& id) {
@@ -772,6 +1155,7 @@ void MainWindow::moveToFolder(const QString& id, const QString& folderId) {
     for (auto& e : data_.entries)
         if (e.id == id) { e.folder = folderId; break; }
     persist();
+    rebuildSidebar();
     rebuildList();
 }
 
@@ -785,16 +1169,24 @@ void MainWindow::listContextMenu(const QPoint& pos) {
     const QString id = it->data(Qt::UserRole).toString();
     const vault::Entry* e = findEntry(id);
     if (!e) return;
+
+    QMenu m(this);
+    if (e->trashed) {
+        m.addAction("Restore", this, [this, id] { restoreEntry(id); });
+        m.addAction("Delete forever", this, [this, id] { purgeEntry(id); });
+        m.addSeparator();
+        m.addAction("Empty Trash", this, [this] { emptyTrash(); });
+        m.exec(list_->mapToGlobal(pos));
+        return;
+    }
+
     const QString user = e->username, pass = e->password, url = e->url;
     const QString otp = e->type == "login" ? e->totp : e->otpSecret;
     const bool fav = e->favorite;
     const QString type = e->type;
 
-    QMenu m(this);
-    if (type == "login") {
-        if (!user.isEmpty()) m.addAction("Copy username", this, [this, id, user] { selectedId_ = id; copyValue(user); });
-        if (!pass.isEmpty()) m.addAction("Copy password", this, [this, id, pass] { selectedId_ = id; copyValue(pass); });
-    }
+    if (!user.isEmpty()) m.addAction("Copy username", this, [this, id, user] { selectedId_ = id; copyValue(user); });
+    if (!pass.isEmpty()) m.addAction("Copy password", this, [this, id, pass] { selectedId_ = id; copyValue(pass); });
     if (!otp.isEmpty())
         m.addAction("Copy 2FA code", this, [this, id, otp] {
             vc::OtpAuth p = vc::parseOtpAuth(otp.toStdString());
@@ -813,7 +1205,7 @@ void MainWindow::listContextMenu(const QPoint& pos) {
         mv->addAction(f.icon + " " + f.name, this, [this, id, fid] { moveToFolder(id, fid); });
     }
     m.addSeparator();
-    m.addAction("Delete", this, [this, id] { deleteEntry(id); });
+    m.addAction("Move to Trash", this, [this, id] { deleteEntry(id); });
     m.exec(list_->mapToGlobal(pos));
 }
 
@@ -826,9 +1218,9 @@ void MainWindow::quickCapture() {
     QProcess p;
     p.start("xdotool", {"getactivewindow", "getwindowname"});
     if (p.waitForFinished(700)) site = QString::fromUtf8(p.readAllStandardOutput()).trimmed();
-    for (const QString& suf : {" - Mozilla Firefox", " — Mozilla Firefox", " - Google Chrome",
-                               " - Chromium", " - Brave", " - Microsoft Edge", " — Chromium"}) {
-        int i = site.indexOf(suf);
+    for (const char* suf : {" - Mozilla Firefox", " — Mozilla Firefox", " - Google Chrome",
+                            " - Chromium", " - Brave", " - Microsoft Edge", " — Chromium"}) {
+        int i = site.indexOf(QLatin1String(suf));
         if (i >= 0) site = site.left(i);
     }
     vault::Entry e = vault::newEntry("login");
@@ -841,6 +1233,7 @@ void MainWindow::quickCapture() {
     if (dlg.exec() == QDialog::Accepted) {
         data_.entries.prepend(dlg.result());
         persist();
+        rebuildSidebar();
         rebuildList();
     }
 }

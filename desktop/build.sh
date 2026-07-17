@@ -77,6 +77,9 @@ if [ "$DO_TEST" = true ]; then
   log "Building & running crypto self-test"
   cmake --build build --target vault-selftest
   ./build/vault-selftest
+  log "Building & running headless UI smoke test"
+  cmake --build build --target vault-smoke
+  QT_QPA_PLATFORM=offscreen ./build/vault-smoke
 fi
 
 # ---- run / install / package ----------------------------------------------

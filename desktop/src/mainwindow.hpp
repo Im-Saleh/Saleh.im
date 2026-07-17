@@ -17,7 +17,8 @@ class QIcon;
 class QPoint;
 
 // The unlocked application: sidebar filters, entry list, detail pane, tray,
-// shortcuts, auto-lock, clipboard auto-clear and all item operations.
+// shortcuts, auto-lock, clipboard auto-clear, command palette, trash, import/
+// export, statistics dashboard and all item operations.
 class MainWindow : public QMainWindow {
     Q_OBJECT
 public:
@@ -32,35 +33,49 @@ protected:
 private:
     // ui
     void buildUi();
+    void buildMenuBar();
     void buildTray();
     void installShortcuts();
+    void manageFolders();
     void rebuildSidebar();
     void rebuildList();
     void showDetail(const QString& id);
     void addDetailRow(QVBoxLayout* v, const QString& label, const QString& value, bool copyable, bool secret = false);
+    void addTotpRow(QVBoxLayout* v, const QString& secret);
+    void addCustomFieldRows(QVBoxLayout* v, const vault::Entry& e);
 
     // actions
     void newEntry(const QString& type);
     void editEntry(const QString& id);
-    void deleteEntry(const QString& id);
+    void deleteEntry(const QString& id);       // soft-delete → trash
+    void restoreEntry(const QString& id);
+    void purgeEntry(const QString& id);        // permanent
+    void emptyTrash();
     void duplicateEntry(const QString& id);
     void toggleFavorite(const QString& id);
     void moveToFolder(const QString& id, const QString& folderId);
+    void showHistory(const QString& id);
     void listContextMenu(const QPoint& pos);
     void quickCapture();
     void openVaultFolder();
     void updateStats();
-    QIcon avatarFor(const QString& type) const;
+    QIcon avatarFor(const vault::Entry& e) const;
     void bumpUsed(const QString& id);
     void openGenerator();
     void openAudit();
+    void openStats();
+    void openAbout();
+    void openCommandPalette();
     void openSettings();
+    void pickTheme();
+    void importItems();
+    void exportItems();
     void changeMaster();
     void exportBackup();
     void wipeVault();
     void lock();
     void copyValue(const QString& text);
-    void applyTheme(const QString& mode);
+    void applyTheme(const QString& id);
 
     // persistence
     void persist();
@@ -82,6 +97,7 @@ private:
     QLineEdit* searchEdit_ = nullptr;
     QComboBox* sortCombo_ = nullptr;
     QLabel* statsLabel_ = nullptr;
+    QLabel* crumbLabel_ = nullptr;
     QTimer* revealTimer_ = nullptr;
     QListWidget* list_ = nullptr;
     QWidget* detail_ = nullptr;

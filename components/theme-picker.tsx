@@ -77,8 +77,8 @@ export function ThemePicker() {
 
       {open && (
         <div
-          className="panel absolute end-0 top-11 z-[60] w-64 p-2 shadow-2xl"
-          style={{ boxShadow: `0 20px 60px -20px var(--shadow)` }}
+          className="panel thin-scroll absolute end-0 top-11 z-[60] max-h-[72vh] w-64 overflow-auto p-2 shadow-2xl"
+          style={{ boxShadow: `0 20px 60px -20px var(--shadow)`, animation: "tabIn .28s cubic-bezier(0.22,1,0.36,1)" }}
         >
           <p className="label px-2 py-2">{t.theme.pick}</p>
           <div className="grid gap-1">

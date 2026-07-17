@@ -215,7 +215,7 @@ function Onboard({ t, fa, onCreated }: { t: VaultStrings; fa: boolean; onCreated
     <main className="wrap grid gap-8 py-10 lg:grid-cols-2 lg:py-16">
       <section className="reveal in">
         <p className="label tag-dot">{t.brand}</p>
-        <h1 className="display mt-4 text-4xl sm:text-5xl">{t.createTitle}</h1>
+        <h1 className="display gradient-text mt-4 text-4xl sm:text-5xl">{t.createTitle}</h1>
         <p className="mt-4 max-w-md text-[var(--fg-2)]">{t.createSub}</p>
 
         <div className="panel elev mt-8 space-y-4 p-5 sm:p-6">
@@ -325,7 +325,7 @@ function Unlock({ t, fa, onUnlocked, onReset }: { t: VaultStrings; fa: boolean; 
             <span className="conic-sheen" aria-hidden style={{ opacity: 0.25 }} />
             <Icon name="lock" size={30} className="relative" />
           </span>
-          <h1 className="display mt-5 text-3xl">{t.unlockTitle}</h1>
+          <h1 className="display gradient-text mt-5 text-3xl">{t.unlockTitle}</h1>
           <p className="mt-2 max-w-xs text-sm text-[var(--fg-2)]">{t.unlockSub}</p>
         </div>
 

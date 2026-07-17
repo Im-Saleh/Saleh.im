@@ -79,9 +79,21 @@ struct GenOptions {
     bool digits = true;
     bool symbols = true;
     bool avoidAmbiguous = false;
+    std::string exclude = "";  // extra characters to strip from every pool
+    int minDigits = 0;         // require at least N digits (best-effort)
+    int minSymbols = 0;        // require at least N symbols (best-effort)
 };
 std::string generatePassword(const GenOptions& o);
 std::string generatePassphrase(int words, const std::string& sep, bool capitalize, bool number);
+
+// A numeric PIN of `digits` length (uniform, unbiased).
+std::string generatePin(int digits);
+// A random key rendered as lowercase hex (`bytes` bytes → 2*bytes chars).
+std::string generateHexKey(int bytes);
+// A pronounceable, roughly `length`-char password built from CV syllables.
+std::string generatePronounceable(int length, bool capitalize, bool number);
+// Number of distinct words available to the passphrase generator.
+std::size_t wordlistSize();
 
 struct Strength {
     int score;            // 0..4

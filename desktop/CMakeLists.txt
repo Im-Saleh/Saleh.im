@@ -23,6 +23,8 @@ add_executable(saleh-vault
     src/generator.cpp
     src/authdialog.cpp
     src/dialogs.cpp
+    src/extradialogs.cpp
+    src/commandpalette.cpp
     src/mainwindow.cpp
 )
 
@@ -45,6 +47,22 @@ add_executable(vault-selftest EXCLUDE_FROM_ALL src/selftest.cpp src/crypto.cpp)
 target_include_directories(vault-selftest PRIVATE ${SODIUM_INCLUDE_DIRS})
 target_link_libraries(vault-selftest PRIVATE ${SODIUM_LIBRARIES})
 target_link_directories(vault-selftest PRIVATE ${SODIUM_LIBRARY_DIRS})
+
+# ---- optional headless UI smoke test ---------------------------------------
+add_executable(vault-smoke EXCLUDE_FROM_ALL
+    src/smoketest.cpp
+    src/crypto.cpp
+    src/vault.cpp
+    src/generator.cpp
+    src/authdialog.cpp
+    src/dialogs.cpp
+    src/extradialogs.cpp
+    src/commandpalette.cpp
+    src/mainwindow.cpp
+)
+target_include_directories(vault-smoke PRIVATE ${SODIUM_INCLUDE_DIRS})
+target_link_libraries(vault-smoke PRIVATE Qt6::Widgets ${SODIUM_LIBRARIES})
+target_link_directories(vault-smoke PRIVATE ${SODIUM_LIBRARY_DIRS})
 
 # ---- CPack: .deb -----------------------------------------------------------
 set(CPACK_GENERATOR "DEB")

@@ -223,6 +223,20 @@ export type Project = {
 
 export const projects: Project[] = [
   {
+    name: "Forge",
+    title: { en: "Forge — Developer Toolbox", fa: "فورج — جعبه‌ابزار توسعه‌دهنده" },
+    description: {
+      en: "A fast, private developer toolbox with 16 tools in one place — JSON formatter, Base64 / URL / HTML / JWT, hashing, UUID·ULID·Nano-ID generators, a colour studio with WCAG contrast, regex tester, cron explainer, timestamp & number-base converters, a line diff and a live Markdown preview. Everything runs locally in the browser — nothing is uploaded.",
+      fa: "یک جعبه‌ابزارِ سریع و خصوصیِ توسعه‌دهنده با ۱۶ ابزار در یک‌جا — فرمت‌کننده‌ی JSON، Base64/URL/HTML/JWT، هش، سازنده‌ی UUID·ULID·Nano-ID، استودیوی رنگ با کنتراستِ WCAG، تسترِ regex، توضیح‌دهنده‌ی cron، مبدل‌های زمان و مبنای عددی، دیفِ خطی و پیش‌نمایشِ زنده‌ی مارک‌داون. همه‌چیز به‌صورت محلی در مرورگر اجرا می‌شود — چیزی آپلود نمی‌شود.",
+    },
+    tags: ["React", "TypeScript", "Web APIs", "DX", "Tools"],
+    href: `${BASE_PATH}/forge/`,
+    year: "2026",
+    featured: true,
+    internal: true,
+    accent: true,
+  },
+  {
     name: "Cipher",
     title: { en: "Cipher — Encrypted Messenger", fa: "سایفر — پیام‌رسان رمزنگاری‌شده" },
     description: {

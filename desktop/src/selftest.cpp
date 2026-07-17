@@ -103,6 +103,34 @@ int main() {
         CHECK(vc::analyzeStrength("G7#kq!Zx2$Lm9&Rp4^Ws").score >= 3, "strong password high score");
     }
 
+    // generator: exclude characters + minimum digits
+    {
+        vc::GenOptions o;
+        o.length = 32;
+        o.exclude = "abcABC";
+        o.minDigits = 4;
+        std::string p = vc::generatePassword(o);
+        bool bad = false;
+        int digits = 0;
+        for (char c : p) {
+            if (std::string("abcABC").find(c) != std::string::npos) bad = true;
+            if (c >= '0' && c <= '9') digits++;
+        }
+        CHECK(!bad, "generator honours excluded characters");
+        CHECK(digits >= 4, "generator honours minimum digits");
+    }
+
+    // PIN / hex / pronounceable / wordlist
+    {
+        std::string pin = vc::generatePin(6);
+        bool numeric = pin.size() == 6;
+        for (char c : pin) if (c < '0' || c > '9') numeric = false;
+        CHECK(numeric, "PIN is 6 numeric digits");
+        CHECK(vc::generateHexKey(16).size() == 32, "hex key length (16 bytes → 32 chars)");
+        CHECK(vc::generatePronounceable(10, true, false).size() >= 10, "pronounceable length");
+        CHECK(vc::wordlistSize() >= 128, "passphrase wordlist is large");
+    }
+
     std::printf(failures == 0 ? "\nALL PASSED\n" : "\n%d FAILED\n", failures);
     return failures == 0 ? 0 : 1;
 }
