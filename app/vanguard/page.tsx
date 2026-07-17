@@ -402,19 +402,25 @@ export default function VanguardPage() {
           <div className="w-full max-w-lg py-16 text-center">
             <div className="mx-auto mb-5 grid h-20 w-20 place-items-center rounded-3xl text-4xl text-black" style={{ background: "linear-gradient(135deg,#fbbf24,#f97316)", boxShadow: "0 14px 40px -10px rgba(249,115,22,0.6)" }}>▲</div>
             <h1 className="display text-5xl text-white sm:text-6xl">Vanguard</h1>
-            <p className="mx-auto mt-3 max-w-md text-white/60">A first-person shooter that lives entirely in your browser — faster movement, detailed weapon models, an undead horde alongside armed soldiers, ten maps, an eight-mission campaign, skirmish vs bots, and true peer-to-peer online play with no server in between.</p>
+            <p className="mx-auto mt-3 max-w-md text-white/60">A first-person shooter that lives entirely in your browser — momentum-based movement with jumping, sprinting & crouch, high-detail weapon models, a sharper renderer, an undead horde alongside armed soldiers, twelve maps, twenty-one weapons, an eight-mission campaign, skirmish vs bots, and true peer-to-peer online play with no server in between.</p>
             <div className="mt-8 grid gap-2.5">
               <button onClick={() => setScreen("campaign")} className="btn btn-accent halo w-full text-base">Campaign — 8 missions</button>
               <button onClick={() => setScreen("skirmish")} className="btn btn-outline w-full border-white/20 text-white">Skirmish vs Bots</button>
               <button onClick={() => setScreen("multiplayer")} className="btn btn-outline w-full border-white/20 text-white">Online — Peer to Peer</button>
               <button onClick={() => setScreen("settings")} className="btn btn-outline w-full border-white/20 text-white/70">Settings</button>
             </div>
-            <div className="mt-8 grid grid-cols-4 gap-2 text-left text-[11px] text-white/50">
-              <div className="rounded-lg border border-white/10 p-2">WASD — move</div>
-              <div className="rounded-lg border border-white/10 p-2">Mouse — aim/fire</div>
-              <div className="rounded-lg border border-white/10 p-2">R — reload</div>
-              <div className="rounded-lg border border-white/10 p-2">1-9 / Q — weapons</div>
+            <div className="mt-8 grid grid-cols-3 gap-2 text-left text-[11px] text-white/50">
+              <div className="rounded-lg border border-white/10 p-2"><b className="text-white/80">WASD</b> — Move</div>
+              <div className="rounded-lg border border-white/10 p-2"><b className="text-white/80">Mouse</b> — Aim / Fire</div>
+              <div className="rounded-lg border border-white/10 p-2"><b className="text-white/80">Space</b> — Jump</div>
+              <div className="rounded-lg border border-white/10 p-2"><b className="text-white/80">Shift</b> — Sprint</div>
+              <div className="rounded-lg border border-white/10 p-2"><b className="text-white/80">Ctrl / C</b> — Crouch</div>
+              <div className="rounded-lg border border-white/10 p-2"><b className="text-white/80">R</b> — Reload</div>
+              <div className="rounded-lg border border-white/10 p-2"><b className="text-white/80">Right-click</b> — Aim (ADS)</div>
+              <div className="rounded-lg border border-white/10 p-2"><b className="text-white/80">Q</b> — Swap · <b className="text-white/80">B</b> — Weapons</div>
+              <div className="rounded-lg border border-white/10 p-2"><b className="text-white/80">Tab</b> — Scoreboard</div>
             </div>
+            <p className="mt-3 text-[11px] text-white/40">Click the arena once to lock the mouse for aiming — press <b className="text-white/70">Esc</b> to release it.</p>
           </div>
         </div>
       )}
@@ -607,7 +613,17 @@ export default function VanguardPage() {
       {/* ============================ COUNTDOWN OVERLAY ============================ */}
       {inMatch && phase === "countdown" && (
         <div className="pointer-events-none absolute inset-0 z-20 grid place-items-center">
-          <span className="display text-8xl text-white" style={{ textShadow: "0 0 40px rgba(251,191,36,0.6)" }}>{hud.countdown}</span>
+          <div className="flex flex-col items-center gap-4">
+            <span className="display text-8xl text-white" style={{ textShadow: "0 0 40px rgba(251,191,36,0.6)" }}>{hud.countdown}</span>
+            <div className="flex flex-wrap justify-center gap-2 text-[11px] text-white/70">
+              {[["WASD", "Move"], ["Space", "Jump"], ["Shift", "Sprint"], ["Ctrl", "Crouch"], ["Mouse", "Aim/Fire"], ["R", "Reload"]].map(([k, v]) => (
+                <span key={k} className="glass rounded-full px-2.5 py-1" style={{ border: "1px solid rgba(255,255,255,0.14)" }}>
+                  <b className="text-white">{k}</b> <span className="text-white/60">{v}</span>
+                </span>
+              ))}
+            </div>
+            <p className="text-xs text-white/50">Click to lock the mouse</p>
+          </div>
         </div>
       )}
 

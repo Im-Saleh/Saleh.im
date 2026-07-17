@@ -14,6 +14,8 @@ import { WEAPONS, WeaponKind, isWeaponUnlocked, weaponById } from "@/lib/rift/we
 import { BOSS_LORE, ENEMY_CODEX, randomTip, synergyFor } from "@/lib/rift/codex";
 import { BOSSES } from "@/lib/rift/enemies";
 import { ModifierDef, dailyChallengeLabel, dailyChallengeModifiers } from "@/lib/rift/challenges";
+import { useLang } from "@/components/lang-provider";
+import { riftDict } from "@/lib/rift/i18n";
 
 const INITIAL_HUD: Hud = {
   state: "menu", wave: 0, sector: 1, gold: 0, score: 0, hp: 100, hpMax: 100, shield: 0,
@@ -121,7 +123,9 @@ export default function RiftPage() {
   const [gs, setGs] = useState<GameState>("menu");
   const [, force] = useState(0);
   const [profile, setProfile] = useState<RiftProfile>(() => (typeof window === "undefined" ? defaultProfile() : loadProfile()));
-  const [menuTab, setMenuTab] = useState<"play" | "heroes" | "weapons" | "codex" | "achievements" | "stats" | "settings">("play");
+  const [menuTab, setMenuTab] = useState<"play" | "heroes" | "weapons" | "codex" | "achievements" | "stats" | "settings" | "guide">("play");
+  const { lang } = useLang();
+  const T = riftDict[lang];
   const [runResult, setRunResult] = useState<RunResult | null>(null);
   const [toast, setToast] = useState("");
   const [newlyUnlocked, setNewlyUnlocked] = useState<string[]>([]);
@@ -264,10 +268,10 @@ export default function RiftPage() {
         </div>
         {playing && (
           <div className="pointer-events-none flex flex-wrap items-center justify-end gap-2 text-xs">
-            {practiceMode && <span className="glass rounded-full px-3 py-1.5 mono font-bold" style={{ border: "1px solid var(--accent)", color: "var(--accent)" }}>PRACTICE</span>}
-            <span className="glass rounded-full px-3 py-1.5 mono" style={{ border: "1px solid var(--line)" }}>Sector {hud.sector} · Wave {hud.wave}/6</span>
+            {practiceMode && <span className="glass rounded-full px-3 py-1.5 mono font-bold" style={{ border: "1px solid var(--accent)", color: "var(--accent)" }}>{T.practice}</span>}
+            <span className="glass rounded-full px-3 py-1.5 mono" style={{ border: "1px solid var(--line)" }}>{T.sector} {hud.sector} · {T.wave} {hud.wave}/6</span>
             <span className="glass rounded-full px-3 py-1.5 mono" style={{ border: "1px solid var(--line)", color: "var(--accent)" }}>◆ {hud.gold}</span>
-            <span className="glass hidden rounded-full px-3 py-1.5 mono sm:block" style={{ border: "1px solid var(--line)" }}>Lv {hud.level}</span>
+            <span className="glass hidden rounded-full px-3 py-1.5 mono sm:block" style={{ border: "1px solid var(--line)" }}>{T.lv} {hud.level}</span>
           </div>
         )}
         <div className="pointer-events-auto flex items-center gap-2">
@@ -280,15 +284,15 @@ export default function RiftPage() {
       {playing && (
         <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex items-end justify-between gap-4 p-3 sm:p-5">
           <div className="w-40 space-y-1.5 sm:w-56">
-            <Bar value={hud.hp} max={hud.hpMax} color={hud.heroColor} label="HULL" />
+            <Bar value={hud.hp} max={hud.hpMax} color={hud.heroColor} label={T.hull} />
             {hud.shield > 0 && <Bar value={hud.shield} max={Math.max(hud.shield, 40)} color="#60a5fa" />}
           </div>
           <div className="hidden flex-1 flex-col items-center gap-2 px-8 sm:flex">
             {hud.boss.visible ? (
               <div className="w-full max-w-md">
                 <div className="mb-1 flex items-center justify-between text-[10px] tracking-widest" style={{ color: hud.boss.color }}>
-                  <span>{hud.boss.name} — {hud.boss.title}{hud.boss.shieldActive ? " · SHIELDED" : ""}</span>
-                  <span>Phase {hud.boss.phase}/{hud.boss.phases}</span>
+                  <span>{hud.boss.name} — {hud.boss.title}{hud.boss.shieldActive ? ` · ${T.shielded}` : ""}</span>
+                  <span>{T.phase} {hud.boss.phase}/{hud.boss.phases}</span>
                 </div>
                 <div className="h-2 overflow-hidden rounded-full" style={{ background: "var(--bg-3)" }}>
                   <div className="h-full rounded-full transition-[width] duration-200" style={{ width: `${(hud.boss.hp / Math.max(1, hud.boss.hpMax)) * 100}%`, background: hud.boss.color, boxShadow: `0 0 10px ${hud.boss.color}` }} />
@@ -296,14 +300,14 @@ export default function RiftPage() {
               </div>
             ) : (
               <>
-                <div className="text-center text-[10px] tracking-widest text-[var(--fg-2)]">WAVE PROGRESS</div>
+                <div className="text-center text-[10px] tracking-widest text-[var(--fg-2)]">{T.waveProgress}</div>
                 <div className="mx-auto h-1.5 w-full max-w-md overflow-hidden rounded-full" style={{ background: "var(--bg-3)" }}>
                   <div className="h-full rounded-full" style={{ width: `${hud.waveProgress * 100}%`, background: "linear-gradient(90deg,var(--accent),var(--accent-2))", transition: "width .3s" }} />
                 </div>
               </>
             )}
           </div>
-          <div className="w-40 text-right sm:w-56"><Bar value={hud.coreHp} max={hud.coreHpMax} color="var(--accent)" label="CORE" /></div>
+          <div className="w-40 text-right sm:w-56"><Bar value={hud.coreHp} max={hud.coreHpMax} color="var(--accent)" label={T.core} /></div>
         </div>
       )}
 
@@ -326,12 +330,12 @@ export default function RiftPage() {
         <div className="pointer-events-none absolute right-3 top-16 z-20 flex flex-col items-end gap-1.5 sm:right-4">
           {profile.showDpsMeter && hud.dps > 0 && (
             <div className="glass rounded-full px-3 py-1" style={{ border: "1px solid var(--line)" }}>
-              <span className="mono text-xs" style={{ color: "var(--accent-2)" }}>{hud.dps.toLocaleString()} DPS</span>
+              <span className="mono text-xs" style={{ color: "var(--accent-2)" }}>{hud.dps.toLocaleString()} {T.dps}</span>
             </div>
           )}
           {hud.combo > 1 && (
             <div className="glass overflow-hidden rounded-full px-3 py-1" style={{ border: "1px solid var(--line)" }}>
-              <span className="mono text-xs font-bold" style={{ color: "var(--accent)" }}>×{hud.combo} combo</span>
+              <span className="mono text-xs font-bold" style={{ color: "var(--accent)" }}>×{hud.combo} {T.comboSuffix}</span>
               <div className="mt-0.5 h-0.5 w-full overflow-hidden rounded-full" style={{ background: "var(--bg-3)" }}>
                 <div className="h-full rounded-full" style={{ width: `${hud.comboFrac * 100}%`, background: "var(--accent)" }} />
               </div>
@@ -367,16 +371,16 @@ export default function RiftPage() {
               <div className="flex flex-col items-center text-center">
                 <div className="mb-3 grid h-16 w-16 place-items-center rounded-3xl text-3xl" style={{ background: "linear-gradient(135deg,var(--accent),var(--accent-2))", color: "var(--on-accent)", boxShadow: "0 14px 40px -10px var(--glow)" }}>◈</div>
                 <h1 className="display gradient-text text-4xl sm:text-5xl">Rift</h1>
-                <p className="mt-2 max-w-xl text-sm text-[var(--fg-2)]">Choose a hero, a weapon and up to two abilities, then defend the <b style={{ color: "var(--accent)" }}>Core</b> through five sectors of escalating threats — each capped by a unique boss.</p>
+                <p className="mt-2 max-w-xl text-sm text-[var(--fg-2)]">{T.menuSubA}<b style={{ color: "var(--accent)" }}>{T.menuSubCore}</b>{T.menuSubB}</p>
               </div>
 
               <p className="mx-auto mt-3 max-w-md text-center text-[11px] text-[var(--fg-2)] opacity-70">💡 {fieldTip}</p>
 
               <div className="mt-6 flex justify-center gap-1.5 overflow-x-auto">
-                {(["play", "heroes", "weapons", "codex", "achievements", "stats", "settings"] as const).map((tab) => (
+                {(["play", "guide", "heroes", "weapons", "codex", "achievements", "stats", "settings"] as const).map((tab) => (
                   <button key={tab} onClick={() => setMenuTab(tab)} className="shrink-0 rounded-full px-3.5 py-1.5 text-xs font-semibold capitalize transition-colors"
                     style={{ background: menuTab === tab ? "var(--accent)" : "var(--bg-3)", color: menuTab === tab ? "var(--on-accent)" : "var(--fg-2)" }}>
-                    {tab === "achievements" ? `Achievements (${achievementCount}/${ACHIEVEMENTS.length})` : tab}
+                    {tab === "achievements" ? `${T.achievements} (${achievementCount}/${ACHIEVEMENTS.length})` : T[tab]}
                   </button>
                 ))}
               </div>
@@ -384,7 +388,7 @@ export default function RiftPage() {
               {menuTab === "play" && (
                 <div className="mt-6 space-y-5">
                   <div>
-                    <div className="mb-2 label">Difficulty</div>
+                    <div className="mb-2 label">{T.difficulty}</div>
                     <div className="grid grid-cols-3 gap-2">
                       {DIFFICULTIES.map((d) => (
                         <button key={d.id} onClick={() => setProfile((p) => ({ ...p, selectedDifficulty: d.id as DifficultyId }))}
@@ -397,7 +401,7 @@ export default function RiftPage() {
                     </div>
                   </div>
                   <div>
-                    <div className="mb-2 label">Abilities — pick up to 2</div>
+                    <div className="mb-2 label">{T.abilitiesPick}</div>
                     <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                       {ABILITIES.map((a) => {
                         const picked = abilitySlots.includes(a.id);
@@ -408,7 +412,7 @@ export default function RiftPage() {
                             <span className="text-lg">{a.icon}</span>
                             <span className="min-w-0">
                               <span className="block text-xs font-semibold">{a.name}{bannedByOneLife && " 🚫"}</span>
-                              <span className="block text-[10px] text-[var(--fg-2)]">{bannedByOneLife ? "Banned by One Life" : `${a.cooldown}s cd`}</span>
+                              <span className="block text-[10px] text-[var(--fg-2)]">{bannedByOneLife ? T.bannedByOneLife : `${a.cooldown}${T.cooldownSuffix}`}</span>
                             </span>
                           </button>
                         );
@@ -416,24 +420,24 @@ export default function RiftPage() {
                     </div>
                   </div>
                   <div className="rounded-xl border p-3 text-xs text-[var(--fg-2)]" style={{ borderColor: "var(--line)" }}>
-                    Flying as <b style={{ color: selectedHero.color }}>{selectedHero.name}</b> with the <b style={{ color: selectedWeapon.color }}>{selectedWeapon.name}</b>. Switch either from their tabs above.
+                    {T.flyingAs(selectedHero.name, selectedWeapon.name)}
                   </div>
                   <div>
-                    <div className="mb-2 label">Loadout presets</div>
+                    <div className="mb-2 label">{T.loadoutPresets}</div>
                     <div className="grid grid-cols-3 gap-2">
                       {profile.presets.map((preset, i) => (
                         <div key={i} className="rounded-xl border p-2 text-center" style={{ borderColor: "var(--line)", background: "var(--bg-3)" }}>
                           {preset ? (
                             <>
                               <button onClick={() => loadPreset(preset)} className="w-full text-xs font-semibold">{preset.name}</button>
-                              <button onClick={() => clearPreset(i)} className="mt-1 text-[10px] text-[var(--fg-2)] hover:text-[var(--fg)]">clear</button>
+                              <button onClick={() => clearPreset(i)} className="mt-1 text-[10px] text-[var(--fg-2)] hover:text-[var(--fg)]">{T.clear}</button>
                             </>
                           ) : (
                             <button
                               onClick={() => { const name = presetNameInput || `Slot ${i + 1}`; setPresetNameInput(name); savePreset(i); }}
                               className="w-full text-[11px] text-[var(--fg-2)]"
                             >
-                              + save here
+                              {T.saveHere}
                             </button>
                           )}
                         </div>
@@ -442,17 +446,17 @@ export default function RiftPage() {
                     <input
                       value={presetNameInput}
                       onChange={(e) => setPresetNameInput(e.target.value)}
-                      placeholder="Name a preset, then tap an empty slot…"
+                      placeholder={T.presetPlaceholder}
                       className="mt-2 w-full rounded-lg border bg-transparent px-3 py-1.5 text-xs outline-none"
                       style={{ borderColor: "var(--line)" }}
                     />
                   </div>
                   <div>
                     <div className="mb-2 flex items-center justify-between">
-                      <span className="label">Daily challenge — {dailyChallengeLabel()}</span>
+                      <span className="label">{T.dailyChallenge} — {dailyChallengeLabel()}</span>
                       <label className="flex items-center gap-1.5 text-[11px] text-[var(--fg-2)]">
                         <input type="checkbox" checked={challengeMode} onChange={(e) => setChallengeMode(e.target.checked)} className="h-3.5 w-3.5" />
-                        Enable
+                        {T.enable}
                       </label>
                     </div>
                     <div className="grid grid-cols-3 gap-2">
@@ -464,25 +468,75 @@ export default function RiftPage() {
                         </div>
                       ))}
                     </div>
-                    {challengeMode && <p className="mt-2 text-[11px] text-[var(--accent)]">Same three modifiers for everyone today — a fair, comparable run.</p>}
+                    {challengeMode && <p className="mt-2 text-[11px] text-[var(--accent)]">{T.challengeNote}</p>}
                   </div>
                   {profile.runsWon > 0 && (
                     <label className="flex items-center justify-between rounded-xl border p-3 text-sm" style={{ borderColor: "var(--line)" }}>
                       <span>
-                        <b>Prestige mode</b>
-                        <span className="block text-[11px] text-[var(--fg-2)]">Sealing the Rift no longer ends the run — sector 6 onward is endless, guarded by Eclipse.</span>
+                        <b>{T.prestige}</b>
+                        <span className="block text-[11px] text-[var(--fg-2)]">{T.prestigeDesc}</span>
                       </span>
                       <input type="checkbox" checked={prestigeMode} onChange={(e) => setPrestigeMode(e.target.checked)} className="h-4 w-4" />
                     </label>
                   )}
                   <label className="flex items-center justify-between rounded-xl border p-3 text-sm" style={{ borderColor: "var(--line)" }}>
                     <span>
-                      <b>Practice mode</b>
-                      <span className="block text-[11px] text-[var(--fg-2)]">The Core and hero can't actually die — learn a boss pattern risk-free. Doesn't save progress or achievements.</span>
+                      <b>{T.practiceMode}</b>
+                      <span className="block text-[11px] text-[var(--fg-2)]">{T.practiceDesc}</span>
                     </span>
                     <input type="checkbox" checked={practiceMode} onChange={(e) => setPracticeMode(e.target.checked)} className="h-4 w-4" />
                   </label>
-                  <button onClick={launchRun} className="btn btn-accent halo w-full text-base">Launch ◈</button>
+                  <button onClick={launchRun} className="btn btn-accent halo w-full text-base">{T.launch}</button>
+                </div>
+              )}
+
+              {menuTab === "guide" && (
+                <div className="mt-6 max-h-[26rem] space-y-4 overflow-y-auto pe-1 text-sm leading-relaxed text-[var(--fg-2)]">
+                  <div>
+                    <div className="mb-1 label">{T.guideTitle}</div>
+                    <p>{T.guideIntro}</p>
+                  </div>
+                  <div className="rounded-xl border p-3.5" style={{ borderColor: "var(--line)", background: "var(--bg-3)" }}>
+                    <div className="mb-1.5 font-semibold text-[var(--fg)]">🎯 {T.guideGoalT}</div>
+                    <p>{T.guideGoal}</p>
+                  </div>
+                  <div className="rounded-xl border p-3.5" style={{ borderColor: "var(--line)", background: "var(--bg-3)" }}>
+                    <div className="mb-2 font-semibold text-[var(--fg)]">🎮 {T.guideControlsT}</div>
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                      {[
+                        ["WASD / ←↑↓→", T.cMove],
+                        [lang === "fa" ? "موس / کشیدن با لمس" : "Mouse / touch drag", T.cAim],
+                        ["1", T.cAbility1],
+                        ["2", T.cAbility2],
+                        ["P", T.cPause],
+                      ].map(([key, action]) => (
+                        <div key={key} className="rounded-lg border p-2 text-[11px]" style={{ borderColor: "var(--line)" }}>
+                          <span className="mono text-[var(--fg)]">{key}</span>
+                          <span className="block">{action}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="rounded-xl border p-3.5" style={{ borderColor: "var(--line)", background: "var(--bg-3)" }}>
+                    <div className="mb-1.5 font-semibold text-[var(--fg)]">🔁 {T.guideLoopT}</div>
+                    <p>{T.guideLoop}</p>
+                  </div>
+                  <div className="rounded-xl border p-3.5" style={{ borderColor: "var(--line)", background: "var(--bg-3)" }}>
+                    <div className="mb-1.5 font-semibold text-[var(--fg)]">🛡 {T.guideHeroesT}</div>
+                    <p>{T.guideHeroes}</p>
+                  </div>
+                  <div className="rounded-xl border p-3.5" style={{ borderColor: "var(--line)", background: "var(--bg-3)" }}>
+                    <div className="mb-2 font-semibold text-[var(--fg)]">💡 {T.guideTipsT}</div>
+                    <ul className="space-y-1.5">
+                      {T.guideTips.map((tip, i) => (
+                        <li key={i} className="flex gap-2">
+                          <span style={{ color: "var(--accent)" }}>◆</span>
+                          <span>{tip}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  <button onClick={() => setMenuTab("play")} className="btn btn-accent halo w-full">{T.launch}</button>
                 </div>
               )}
 
@@ -500,7 +554,7 @@ export default function RiftPage() {
                     const bestWeapon = weaponById(synergy.bestWeapon as WeaponKind);
                     return (
                       <div className="rounded-xl border p-3.5" style={{ borderColor: "var(--line)", background: "color-mix(in srgb, var(--accent) 6%, var(--bg-3))" }}>
-                        <div className="label mb-1.5">Suggested build for {selectedHero.name}</div>
+                        <div className="label mb-1.5">{T.suggestedBuild(selectedHero.name)}</div>
                         <div className="flex items-center gap-2 text-xs">
                           <span style={{ color: bestWeapon.color }}>{bestWeapon.icon} {bestWeapon.name}</span>
                           <span className="text-[var(--fg-2)]">+</span>
@@ -515,10 +569,10 @@ export default function RiftPage() {
                             onClick={() => setProfile((p) => ({ ...p, selectedWeapon: synergy.bestWeapon, selectedAbilities: synergy.bestAbilities as [string, string] }))}
                             className="mt-2 text-[11px] font-semibold" style={{ color: "var(--accent)" }}
                           >
-                            Apply this build →
+                            {T.applyBuild}
                           </button>
                         ) : (
-                          <p className="mt-2 text-[11px] text-[var(--fg-2)]">Unlock {bestWeapon.name} to use this build.</p>
+                          <p className="mt-2 text-[11px] text-[var(--fg-2)]">{T.unlockToUse(bestWeapon.name)}</p>
                         )}
                       </div>
                     );
@@ -538,7 +592,7 @@ export default function RiftPage() {
               {menuTab === "codex" && (
                 <div className="mt-6 max-h-[24rem] space-y-4 overflow-y-auto pe-1">
                   <div>
-                    <div className="mb-2 label">Bestiary</div>
+                    <div className="mb-2 label">{T.bestiary}</div>
                     <div className="grid gap-2 sm:grid-cols-2">
                       {ENEMY_CODEX.map((c) => (
                         <div key={c.kind} className="rounded-xl border p-3" style={{ borderColor: "var(--line)", background: "var(--bg-3)" }}>
@@ -553,7 +607,7 @@ export default function RiftPage() {
                     </div>
                   </div>
                   <div>
-                    <div className="mb-2 label">Boss field manual</div>
+                    <div className="mb-2 label">{T.bossManual}</div>
                     <div className="grid gap-2">
                       {BOSSES.map((b) => {
                         const lore = BOSS_LORE.find((l) => l.kind === b.kind);
@@ -593,21 +647,21 @@ export default function RiftPage() {
               {menuTab === "stats" && (
                 <div className="mt-6 space-y-4">
                   <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
-                    <StatCard label="Best score" value={profile.bestScore.toLocaleString()} />
-                    <StatCard label="Runs won" value={profile.runsWon} />
-                    <StatCard label="Win rate" value={`${Math.round(winRate(profile.runLog) * 100)}%`} />
-                    <StatCard label="Avg score" value={averageScore(profile.runLog).toLocaleString()} />
-                    <StatCard label="Best sector" value={profile.bestSector} />
-                    <StatCard label="Lifetime kills" value={profile.lifetimeKills.toLocaleString()} />
-                    <StatCard label="Boss kills" value={profile.lifetimeBossKills} />
-                    <StatCard label="Lifetime gold" value={profile.lifetimeGold.toLocaleString()} />
-                    <StatCard label="Crit kills" value={profile.lifetimeCrits} />
-                    <StatCard label="Favorite hero" value={favoriteHero(profile.runLog) ? heroById(favoriteHero(profile.runLog)!).name : "—"} />
+                    <StatCard label={T.bestScore} value={profile.bestScore.toLocaleString()} />
+                    <StatCard label={T.runsWon} value={profile.runsWon} />
+                    <StatCard label={T.winRate} value={`${Math.round(winRate(profile.runLog) * 100)}%`} />
+                    <StatCard label={T.avgScore} value={averageScore(profile.runLog).toLocaleString()} />
+                    <StatCard label={T.bestSector} value={profile.bestSector} />
+                    <StatCard label={T.lifetimeKills} value={profile.lifetimeKills.toLocaleString()} />
+                    <StatCard label={T.bossKills} value={profile.lifetimeBossKills} />
+                    <StatCard label={T.lifetimeGold} value={profile.lifetimeGold.toLocaleString()} />
+                    <StatCard label={T.critKills} value={profile.lifetimeCrits} />
+                    <StatCard label={T.favoriteHero} value={favoriteHero(profile.runLog) ? heroById(favoriteHero(profile.runLog)!).name : "—"} />
                   </div>
                   <div>
-                    <div className="mb-2 label">Recent runs</div>
+                    <div className="mb-2 label">{T.recentRuns}</div>
                     {profile.runLog.length === 0 ? (
-                      <p className="text-xs text-[var(--fg-2)]">No runs logged yet — your history will build up here.</p>
+                      <p className="text-xs text-[var(--fg-2)]">{T.noRuns}</p>
                     ) : (
                       <div className="max-h-52 space-y-1.5 overflow-y-auto pe-1">
                         {profile.runLog.map((r, i) => <RunLogRow key={i} entry={r} />)}
@@ -620,14 +674,14 @@ export default function RiftPage() {
               {menuTab === "settings" && (
                 <div className="mt-6 space-y-3">
                   <div className="rounded-xl border p-3" style={{ borderColor: "var(--line)" }}>
-                    <div className="label mb-2">Controls</div>
+                    <div className="label mb-2">{T.controls}</div>
                     <div className="grid grid-cols-2 gap-2 text-[11px] text-[var(--fg-2)] sm:grid-cols-3">
                       {[
-                        ["WASD / arrows", "Move"],
-                        ["Mouse / touch drag", "Aim (auto-fire)"],
-                        ["1", "Ability slot 1"],
-                        ["2", "Ability slot 2"],
-                        ["P", "Pause / resume"],
+                        ["WASD / ←↑↓→", T.cMove],
+                        [lang === "fa" ? "موس / کشیدن با لمس" : "Mouse / touch drag", T.cAim],
+                        ["1", T.cAbility1],
+                        ["2", T.cAbility2],
+                        ["P", T.cPause],
                       ].map(([key, action]) => (
                         <div key={key} className="rounded-lg border p-2" style={{ borderColor: "var(--line)" }}>
                           <span className="mono text-[var(--fg)]">{key}</span>
@@ -637,11 +691,11 @@ export default function RiftPage() {
                     </div>
                   </div>
                   {[
-                    ["Sound effects", "soundOn"],
-                    ["Music", "musicOn"],
-                    ["Screen shake", "screenShakeOn"],
-                    ["Colorblind-friendly shapes", "colorblindShapes"],
-                    ["Show DPS meter", "showDpsMeter"],
+                    [T.soundEffects, "soundOn"],
+                    [T.music, "musicOn"],
+                    [T.screenShake, "screenShakeOn"],
+                    [T.colorblind, "colorblindShapes"],
+                    [T.showDps, "showDpsMeter"],
                   ].map(([label, key]) => (
                     <label key={key} className="flex items-center justify-between rounded-xl border p-3 text-sm" style={{ borderColor: "var(--line)" }}>
                       {label}
@@ -656,15 +710,15 @@ export default function RiftPage() {
                     </label>
                   ))}
                   <div className="space-y-3 rounded-xl border p-3" style={{ borderColor: "var(--line)" }}>
-                    <VolumeSlider label="Master volume" value={profile.masterVolume} onChange={(v) => { setProfile((p) => ({ ...p, masterVolume: v })); g()?.setMasterVolume(v); }} />
-                    <VolumeSlider label="Sound effects" value={profile.sfxVolume} onChange={(v) => { setProfile((p) => ({ ...p, sfxVolume: v })); g()?.setSfxVolume(v); }} />
-                    <VolumeSlider label="Music" value={profile.musicVolume} onChange={(v) => { setProfile((p) => ({ ...p, musicVolume: v })); g()?.setMusicVolume(v); }} />
+                    <VolumeSlider label={T.masterVolume} value={profile.masterVolume} onChange={(v) => { setProfile((p) => ({ ...p, masterVolume: v })); g()?.setMasterVolume(v); }} />
+                    <VolumeSlider label={T.soundEffects} value={profile.sfxVolume} onChange={(v) => { setProfile((p) => ({ ...p, sfxVolume: v })); g()?.setSfxVolume(v); }} />
+                    <VolumeSlider label={T.music} value={profile.musicVolume} onChange={(v) => { setProfile((p) => ({ ...p, musicVolume: v })); g()?.setMusicVolume(v); }} />
                   </div>
                   <div className="rounded-xl border p-3 text-xs text-[var(--fg-2)]" style={{ borderColor: "var(--line)" }}>
                     Best score: <b className="text-[var(--fg)]">{profile.bestScore.toLocaleString()}</b> · Runs won: <b className="text-[var(--fg)]">{profile.runsWon}</b> · Lifetime kills: <b className="text-[var(--fg)]">{profile.lifetimeKills.toLocaleString()}</b>
                   </div>
                   <div className="grid gap-1.5 rounded-xl border p-3 text-xs text-[var(--fg-2)]" style={{ borderColor: "var(--line)" }}>
-                    <div className="label mb-1">Best score by difficulty</div>
+                    <div className="label mb-1">{T.bestByDifficulty}</div>
                     {DIFFICULTIES.map((d) => (
                       <div key={d.id} className="flex items-center justify-between">
                         <span style={{ color: d.color }}>{d.name}</span>
@@ -674,13 +728,13 @@ export default function RiftPage() {
                   </div>
                   <button
                     onClick={() => {
-                      if (window.confirm("Reset all Rift progress? This clears heroes, weapons, achievements and stats — it cannot be undone.")) {
+                      if (window.confirm(T.resetConfirm)) {
                         setProfile(resetProfile());
                       }
                     }}
                     className="btn btn-outline w-full text-xs text-[var(--fg-2)] hover:text-[#ff5f6d]"
                   >
-                    Reset all progress
+                    {T.resetProgress}
                   </button>
                 </div>
               )}
@@ -693,11 +747,11 @@ export default function RiftPage() {
       {gs === "paused" && (
         <div className="absolute inset-0 z-30 grid place-items-center p-5" style={{ background: "color-mix(in srgb,var(--bg) 70%,transparent)", backdropFilter: "blur(6px)" }}>
           <div className="panel elev w-full max-w-sm p-8 text-center">
-            <h2 className="display text-3xl">Paused</h2>
-            <p className="mt-2 text-sm text-[var(--fg-2)]">Score {hud.score.toLocaleString()} · {hud.kills} kills</p>
+            <h2 className="display text-3xl">{T.paused}</h2>
+            <p className="mt-2 text-sm text-[var(--fg-2)]">{T.scoreKills(hud.score.toLocaleString(), hud.kills)}</p>
             <div className="mt-6 grid gap-2">
-              <button onClick={() => g()?.togglePause()} className="btn btn-accent">Resume</button>
-              <button onClick={launchRun} className="btn btn-outline">Restart</button>
+              <button onClick={() => g()?.togglePause()} className="btn btn-accent">{T.resume}</button>
+              <button onClick={launchRun} className="btn btn-outline">{T.restart}</button>
             </div>
           </div>
         </div>
@@ -709,8 +763,8 @@ export default function RiftPage() {
           <div className="panel elev my-8 w-full max-w-2xl p-6 sm:p-8" style={{ animation: "tabIn .4s ease" }}>
             <div className="mb-4 flex items-center justify-between">
               <div>
-                <p className="label">Armory · between waves</p>
-                <h2 className="display text-3xl">Upgrade</h2>
+                <p className="label">{T.armory}</p>
+                <h2 className="display text-3xl">{T.upgrade}</h2>
               </div>
               <div className="flex items-center gap-2">
                 {(g()?.rerollsLeft() ?? 0) > 0 && (
@@ -719,7 +773,7 @@ export default function RiftPage() {
                     disabled={hud.gold < (g()?.rerollCost() ?? 0)}
                     className="btn btn-outline text-xs disabled:opacity-40"
                   >
-                    ↻ Reroll (◆{g()?.rerollCost()}) · {g()?.rerollsLeft()} left
+                    {T.rerollLabel(g()?.rerollCost() ?? 0, g()?.rerollsLeft() ?? 0)}
                   </button>
                 )}
                 <span className="rounded-full px-4 py-2 mono text-lg font-bold" style={{ background: "color-mix(in srgb,var(--accent) 16%,transparent)", color: "var(--accent)" }}>◆ {hud.gold}</span>
@@ -728,7 +782,7 @@ export default function RiftPage() {
 
             {g()?.canSwapWeapon() && (
               <div className="mb-5">
-                <div className="mb-2 label">Swap weapon</div>
+                <div className="mb-2 label">{T.swapWeapon}</div>
                 <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
                   {WEAPONS.filter((w) => isWeaponUnlocked(w, lifetimeScore)).map((w) => {
                     const active = g()?.currentWeaponId() === w.id;
@@ -746,7 +800,7 @@ export default function RiftPage() {
             )}
 
             <div className="mb-2 flex items-center justify-between">
-              <span className="label">Featured offer — reroll for a fresh set</span>
+              <span className="label">{T.featuredOffer}</span>
             </div>
             <div className="grid gap-2 sm:grid-cols-2">
               {shopOfferIds.map((id) => {
@@ -767,13 +821,13 @@ export default function RiftPage() {
                       <span className="flex items-center gap-2"><b className="text-sm">{u.name}</b>{lvl > 0 && <span className="mono text-[10px] text-[var(--fg-2)]">Lv {lvl}/{u.max}</span>}</span>
                       <span className="block text-xs text-[var(--fg-2)]">{u.desc}</span>
                     </span>
-                    <span className="mono shrink-0 text-sm font-bold" style={{ color: maxed ? "var(--fg-2)" : afford ? "var(--accent)" : "var(--fg-2)" }}>{maxed ? "MAX" : `◆${cost}`}</span>
+                    <span className="mono shrink-0 text-sm font-bold" style={{ color: maxed ? "var(--fg-2)" : afford ? "var(--accent)" : "var(--fg-2)" }}>{maxed ? T.max : `◆${cost}`}</span>
                   </button>
                 );
               })}
             </div>
             <details className="mt-4">
-              <summary className="cursor-pointer text-xs text-[var(--fg-2)] hover:text-[var(--fg)]">Show all upgrades</summary>
+              <summary className="cursor-pointer text-xs text-[var(--fg-2)] hover:text-[var(--fg)]">{T.showAll}</summary>
               <div className="mt-2.5 grid gap-2.5 sm:grid-cols-2">
                 {UPGRADES.map((u) => {
                   const gg = g();
@@ -791,13 +845,13 @@ export default function RiftPage() {
                         <span className="flex items-center gap-2"><b className="text-sm">{u.name}</b>{lvl > 0 && <span className="mono text-[10px] text-[var(--fg-2)]">Lv {lvl}/{u.max}</span>}</span>
                         <span className="block text-xs text-[var(--fg-2)]">{u.desc}</span>
                       </span>
-                      <span className="mono shrink-0 text-sm font-bold" style={{ color: maxed ? "var(--fg-2)" : afford ? "var(--accent)" : "var(--fg-2)" }}>{maxed ? "MAX" : `◆${cost}`}</span>
+                      <span className="mono shrink-0 text-sm font-bold" style={{ color: maxed ? "var(--fg-2)" : afford ? "var(--accent)" : "var(--fg-2)" }}>{maxed ? T.max : `◆${cost}`}</span>
                     </button>
                   );
                 })}
               </div>
             </details>
-            <button onClick={() => g()?.resumeFromShop()} className="btn btn-accent halo mt-5 w-full text-base">Deploy — next wave →</button>
+            <button onClick={() => g()?.resumeFromShop()} className="btn btn-accent halo mt-5 w-full text-base">{T.deployNext}</button>
           </div>
         </div>
       )}
@@ -807,10 +861,10 @@ export default function RiftPage() {
         <div className="absolute inset-0 z-30 grid place-items-center overflow-y-auto p-5" style={{ background: "color-mix(in srgb,var(--bg) 78%,transparent)", backdropFilter: "blur(8px)" }}>
           {toast && <div className="absolute top-6 rounded-full px-4 py-2 text-xs" style={{ background: "var(--accent)", color: "var(--on-accent)" }}>{toast}</div>}
           <div className="panel elev my-8 w-full max-w-md p-8 text-center" style={{ animation: "tabIn .5s ease" }}>
-            <h2 className="display gradient-text text-4xl">{gs === "won" ? "Rift Sealed" : "Core Breached"}</h2>
-            <p className="mt-2 text-[var(--fg-2)]">{gs === "won" ? "You cleared all five sectors. Legendary." : "The arena fell — but the salvage remembers you."}</p>
+            <h2 className="display gradient-text text-4xl">{gs === "won" ? T.wonTitle : T.lostTitle}</h2>
+            <p className="mt-2 text-[var(--fg-2)]">{gs === "won" ? T.wonSub : T.lostSub}</p>
             <div className="mt-6 grid grid-cols-4 gap-2">
-              {[["Score", hud.score.toLocaleString()], ["Kills", hud.kills], ["Sector", hud.sector], ["Best combo", `×${Math.max(hud.combo, runResult?.bestCombo ?? 0)}`]].map(([l, v]) => (
+              {[[T.score, hud.score.toLocaleString()], [T.kills, hud.kills], [T.sectorLabel, hud.sector], [T.bestCombo, `×${Math.max(hud.combo, runResult?.bestCombo ?? 0)}`]].map(([l, v]) => (
                 <div key={l as string} className="rounded-xl border p-3" style={{ borderColor: "var(--line)", background: "var(--bg-3)" }}>
                   <div className="font-display text-2xl">{v}</div>
                   <div className="label mt-1">{l}</div>
@@ -819,7 +873,7 @@ export default function RiftPage() {
             </div>
             {newlyUnlocked.length > 0 && (
               <div className="mt-5 space-y-1.5 rounded-xl border p-3 text-left" style={{ borderColor: "var(--line)", background: "color-mix(in srgb, var(--accent) 8%, var(--bg-3))" }}>
-                <div className="label mb-1">New achievements</div>
+                <div className="label mb-1">{T.newAchievements}</div>
                 {newlyUnlocked.map((id) => {
                   const a = ACHIEVEMENTS.find((x) => x.id === id);
                   if (!a) return null;
@@ -828,20 +882,20 @@ export default function RiftPage() {
               </div>
             )}
             <div className="mt-7 grid gap-2">
-              <button onClick={launchRun} className="btn btn-accent halo w-full text-base">Play again ◈</button>
+              <button onClick={launchRun} className="btn btn-accent halo w-full text-base">{T.playAgain}</button>
               <button
                 onClick={() => {
                   if (!runResult) return;
                   const text = formatShareText(runResult, selectedHero.name, selectedWeapon.name, DIFFICULTIES.find((d) => d.id === profile.selectedDifficulty)?.name ?? "");
                   void navigator.clipboard?.writeText(text);
-                  setToast("Result copied to clipboard");
+                  setToast(T.resultCopied);
                   window.setTimeout(() => setToast(""), 2000);
                 }}
                 className="btn btn-outline w-full text-sm"
               >
-                📋 Copy result
+                {T.copyResult}
               </button>
-              <button onClick={() => setGs("menu")} className="btn btn-outline w-full text-sm">Back to menu</button>
+              <button onClick={() => setGs("menu")} className="btn btn-outline w-full text-sm">{T.backToMenu}</button>
             </div>
           </div>
         </div>

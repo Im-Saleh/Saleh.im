@@ -112,7 +112,7 @@ const SUITE: { name: string; category: string; os: string; path: string; descrip
   { name: "Forge", category: "DeveloperApplication", os: "Web", path: "/forge", description: "A private developer toolbox with 70+ tools — encoders, formatters, generators, converters and crypto utilities — all running locally in the browser." },
   { name: "Lumen", category: "BusinessApplication", os: "Web", path: "/lumen", description: "A real-time markets dashboard with live data, animated charts, KPI counters and sortable tables." },
   { name: "Probe", category: "UtilitiesApplication", os: "Web", path: "/probe", description: "A live connection & privacy inspector: public IP, geolocation, real WebRTC candidate gathering and a device fingerprint surface." },
-  { name: "Vanguard", category: "GameApplication", os: "Web", path: "/vanguard", description: "A browser first-person shooter on a hand-written raycast engine — an eight-mission campaign, ten maps, eleven weapons, an undead horde and true peer-to-peer online play." },
+  { name: "Vanguard", category: "GameApplication", os: "Web", path: "/vanguard", description: "A browser first-person shooter on a hand-written raycast engine with momentum movement — an eight-mission campaign, twelve maps, twenty-one weapons, an undead horde and true peer-to-peer online play." },
   { name: "Rift", category: "GameApplication", os: "Web", path: "/rift", description: "A 60fps neon arena-survival game on a hand-written Canvas engine — escalating waves, deep upgrades, sentries and sector bosses." },
 ];
 

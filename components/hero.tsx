@@ -200,8 +200,12 @@ export function Hero() {
         </div>
       </div>
 
-      {/* marquee — one continuous, never-stopping line */}
-      <div className="edge-fade relative mt-16 border-y py-5" style={{ borderColor: "var(--line)" }}>
+      {/* marquee — one continuous, never-stopping line.
+          dir="ltr" is required: under the Persian (RTL) layout the very wide
+          inline-flex track is otherwise anchored to the right edge, which
+          breaks the seamless -50% loop (it plays once, then gaps). Forcing LTR
+          on the wrapper anchors the track to the left in every language. */}
+      <div dir="ltr" className="edge-fade relative mt-16 border-y py-5" style={{ borderColor: "var(--line)" }}>
         <MarqueeRow duration={48} />
       </div>
 
