@@ -18,7 +18,7 @@ import { useLang } from "@/components/lang-provider";
 import { ThemePicker } from "@/components/theme-picker";
 import { LangToggle } from "@/components/lang-toggle";
 
-type StepType = "filter" | "rename" | "set" | "delete" | "delay";
+type StepType = "filter" | "rename" | "set" | "delete" | "delay" | "upper" | "lower" | "template";
 type Step = { id: string; type: StepType; a?: string; b?: string };
 type Dest = { id: string; name: string; url: string; sign: boolean };
 type StepResult = { step: Step; before: unknown; after: unknown; note?: string; dropped?: boolean };
@@ -75,7 +75,7 @@ export default function RelayPage() {
     ? { back: "بازگشت", brand: "ری‌لِی", tagline: "مسیریابِ رویداد و وب‌هوک", source: "منبع (وب‌هوک)", endpoint: "اندپوینت", secret: "کلیدِ امضا", copy: "کپی", copied: "کپی شد!", sampleEvent: "رویدادِ نمونه (JSON)", steps: "مراحلِ تبدیل", addStep: "افزودن مرحله", dests: "مقصدها", addDest: "افزودن مقصد", run: "اجرا ▶", running: "در حال اجرا…", output: "خروجی در هر مرحله", delivery: "گزارشِ تحویل", dropped: "رویداد این‌جا فیلتر شد و متوقف ماند.", badJson: "JSON نامعتبر است.", noRun: "«اجرا» را بزن تا رویداد را در خط‌لوله ببینی.", filter: "فیلتر", rename: "تغییرِ نام", set: "تنظیمِ فیلد", del: "حذفِ فیلد", delayS: "تأخیر", ifField: "اگر فیلد", equals: "برابرِ", from: "از", to: "به", key: "کلید", value: "مقدار", ms: "میلی‌ثانیه", signed: "امضا", attempts: "تلاش", name: "نام", url: "آدرس", remove: "حذف", passed: "عبور کرد", noSteps: "مرحله‌ای نیست — رویداد بدونِ تغییر عبور می‌کند." }
     : { back: "back", brand: "Relay", tagline: "Event & webhook router", source: "Source (webhook)", endpoint: "Endpoint", secret: "Signing secret", copy: "Copy", copied: "Copied!", sampleEvent: "Sample event (JSON)", steps: "Transform steps", addStep: "Add step", dests: "Destinations", addDest: "Add destination", run: "Run ▶", running: "Running…", output: "Output at each step", delivery: "Delivery log", dropped: "Event was filtered out here and stopped.", badJson: "Invalid JSON.", noRun: "Hit Run to push the event through the pipeline.", filter: "Filter", rename: "Rename", set: "Set field", del: "Delete field", delayS: "Delay", ifField: "if field", equals: "equals", from: "from", to: "to", key: "key", value: "value", ms: "ms", signed: "signed", attempts: "attempts", name: "name", url: "URL", remove: "remove", passed: "passed", noSteps: "No steps — the event passes through unchanged." };
 
-  const stepLabel: Record<StepType, string> = { filter: T.filter, rename: T.rename, set: T.set, delete: T.del, delay: T.delayS };
+  const stepLabel: Record<StepType, string> = { filter: T.filter, rename: T.rename, set: T.set, delete: T.del, delay: T.delayS, upper: fa ? "بزرگ‌کردن" : "Uppercase", lower: fa ? "کوچک‌کردن" : "Lowercase", template: fa ? "قالب" : "Template" };
 
   const addStep = (type: StepType) => setSteps((s) => [...s, { id: uid(), type, a: "", b: type === "delay" ? "250" : "" }]);
   const patchStep = (id: string, patch: Partial<Step>) => setSteps((s) => s.map((x) => (x.id === id ? { ...x, ...patch } : x)));
@@ -110,6 +110,10 @@ export default function RelayPage() {
         if (step.a) { after = delPath(cur, step.a); note = `− ${step.a}`; }
       } else if (step.type === "delay") {
         await delay(Math.min(1200, Number(step.b) || 0)); note = `${step.b}${T.ms}`;
+      } else if (step.type === "upper" || step.type === "lower") {
+        if (step.a) { const v = getPath(cur, step.a); if (v != null) { after = setPath(cur, step.a, step.type === "upper" ? String(v).toUpperCase() : String(v).toLowerCase()); note = `${step.a} → ${step.type === "upper" ? "UPPER" : "lower"}`; } }
+      } else if (step.type === "template") {
+        if (step.a) { const tpl = (step.b || "").replace(/\{\{([^}]+)\}\}/g, (_m, p) => String(getPath(cur, String(p).trim()) ?? "")); after = setPath(cur, step.a, tpl); note = `${step.a} = "${tpl}"`; }
       }
       res.push({ step, before, after, note, dropped: drop });
       if (drop) { dropped = true; break; }
@@ -148,6 +152,8 @@ export default function RelayPage() {
     if (s.type === "rename") return (<><span className="text-xs text-[var(--fg-2)]">{T.from}</span><input value={s.a || ""} onChange={(e) => patchStep(s.id, { a: e.target.value })} placeholder="old.path" className="min-w-0 flex-1 rounded-lg border bg-transparent px-2 py-1 text-sm outline-none force-ltr" style={{ borderColor: "var(--line)" }} /><span className="text-xs text-[var(--fg-2)]">{T.to}</span><input value={s.b || ""} onChange={(e) => patchStep(s.id, { b: e.target.value })} placeholder="new.path" className="min-w-0 flex-1 rounded-lg border bg-transparent px-2 py-1 text-sm outline-none force-ltr" style={{ borderColor: "var(--line)" }} /></>);
     if (s.type === "set") return (<><input value={s.a || ""} onChange={(e) => patchStep(s.id, { a: e.target.value })} placeholder={T.key} className="min-w-0 flex-1 rounded-lg border bg-transparent px-2 py-1 text-sm outline-none force-ltr" style={{ borderColor: "var(--line)" }} /><span className="text-xs text-[var(--fg-2)]">=</span><input value={s.b || ""} onChange={(e) => patchStep(s.id, { b: e.target.value })} placeholder={T.value} className="min-w-0 flex-1 rounded-lg border bg-transparent px-2 py-1 text-sm outline-none force-ltr" style={{ borderColor: "var(--line)" }} /></>);
     if (s.type === "delete") return (<input value={s.a || ""} onChange={(e) => patchStep(s.id, { a: e.target.value })} placeholder="path.to.remove" className="min-w-0 flex-1 rounded-lg border bg-transparent px-2 py-1 text-sm outline-none force-ltr" style={{ borderColor: "var(--line)" }} />);
+    if (s.type === "upper" || s.type === "lower") return (<input value={s.a || ""} onChange={(e) => patchStep(s.id, { a: e.target.value })} placeholder="field.path" className="min-w-0 flex-1 rounded-lg border bg-transparent px-2 py-1 text-sm outline-none force-ltr" style={{ borderColor: "var(--line)" }} />);
+    if (s.type === "template") return (<><input value={s.a || ""} onChange={(e) => patchStep(s.id, { a: e.target.value })} placeholder="target.path" className="w-28 rounded-lg border bg-transparent px-2 py-1 text-sm outline-none force-ltr" style={{ borderColor: "var(--line)" }} /><span className="text-xs text-[var(--fg-2)]">=</span><input value={s.b || ""} onChange={(e) => patchStep(s.id, { b: e.target.value })} placeholder="Hi {{customer.email}}" className="min-w-0 flex-1 rounded-lg border bg-transparent px-2 py-1 text-sm outline-none force-ltr" style={{ borderColor: "var(--line)" }} /></>);
     return (<><input value={s.b || ""} onChange={(e) => patchStep(s.id, { b: e.target.value })} type="number" className="w-24 rounded-lg border bg-transparent px-2 py-1 text-sm outline-none" style={{ borderColor: "var(--line)" }} /><span className="text-xs text-[var(--fg-2)]">{T.ms}</span></>);
   };
 
@@ -212,7 +218,7 @@ export default function RelayPage() {
               ))}
             </div>
             <div className="mt-3 flex flex-wrap gap-1.5">
-              {(["filter", "rename", "set", "delete", "delay"] as StepType[]).map((t) => <button key={t} onClick={() => addStep(t)} className="rounded-full border px-2.5 py-1 text-xs transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]" style={{ borderColor: "var(--line-2)" }}>+ {stepLabel[t]}</button>)}
+              {(["filter", "rename", "set", "delete", "delay", "upper", "lower", "template"] as StepType[]).map((t) => <button key={t} onClick={() => addStep(t)} className="rounded-full border px-2.5 py-1 text-xs transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]" style={{ borderColor: "var(--line-2)" }}>+ {stepLabel[t]}</button>)}
             </div>
           </div>
 

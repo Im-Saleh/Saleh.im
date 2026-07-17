@@ -169,27 +169,69 @@ static void addChromiumRoot(QVector<Profile>& out, const QString& root, const QS
 
 QVector<Profile> detectProfiles() {
     QVector<Profile> out;
-    const QString cfg = QDir::homePath() + "/.config";
-    struct Root { const char* rel; const char* name; const char* key; };
-    const Root roots[] = {
-        {"google-chrome", "Chrome", "chrome"},
-        {"google-chrome-beta", "Chrome Beta", "chrome"},
-        {"chromium", "Chromium", "chromium"},
-        {"BraveSoftware/Brave-Browser", "Brave", "brave"},
-        {"microsoft-edge", "Edge", "chromium"},
-        {"vivaldi", "Vivaldi", "vivaldi"},
-        {"opera", "Opera", "chromium"},
-    };
-    for (const auto& r : roots) addChromiumRoot(out, cfg + "/" + r.rel, r.name, r.key);
+    const QString home = QDir::homePath();
 
-    // Firefox
-    const QString ff = QDir::homePath() + "/.mozilla/firefox";
-    QDir ffd(ff);
-    if (ffd.exists()) {
+    // Each Chromium browser can live in several places on Linux: the native
+    // ~/.config path, a Flatpak sandbox (~/.var/app/<id>/config/...) or a Snap
+    // (~/snap/<pkg>/...). Missing these is the #1 reason "nothing is detected"
+    // on modern distros (e.g. Chrome/Brave via Flatpak, Chromium via Snap).
+    struct Root { QString path; const char* name; const char* key; };
+    QVector<Root> roots;
+    auto add = [&](const QString& path, const char* name, const char* key) { roots.push_back({path, name, key}); };
+
+    const QString cfg = home + "/.config";
+    const QString var = home + "/.var/app";
+    const QString snap = home + "/snap";
+
+    // Chrome
+    add(cfg + "/google-chrome", "Chrome", "chrome");
+    add(cfg + "/google-chrome-beta", "Chrome Beta", "chrome");
+    add(cfg + "/google-chrome-unstable", "Chrome Dev", "chrome");
+    add(var + "/com.google.Chrome/config/google-chrome", "Chrome", "chrome");
+    // Chromium
+    add(cfg + "/chromium", "Chromium", "chromium");
+    add(var + "/org.chromium.Chromium/config/chromium", "Chromium", "chromium");
+    add(snap + "/chromium/common/chromium", "Chromium", "chromium");
+    // Brave
+    add(cfg + "/BraveSoftware/Brave-Browser", "Brave", "brave");
+    add(var + "/com.brave.Browser/config/BraveSoftware/Brave-Browser", "Brave", "brave");
+    // Edge
+    add(cfg + "/microsoft-edge", "Edge", "chromium");
+    add(var + "/com.microsoft.Edge/config/microsoft-edge", "Edge", "chromium");
+    // Vivaldi
+    add(cfg + "/vivaldi", "Vivaldi", "vivaldi");
+    add(var + "/com.vivaldi.Vivaldi/config/vivaldi", "Vivaldi", "vivaldi");
+    // Opera (single-profile: Login Data lives directly in the root)
+    add(cfg + "/opera", "Opera", "chromium");
+    add(var + "/com.opera.Opera/config/opera", "Opera", "chromium");
+
+    for (const auto& r : roots) {
+        addChromiumRoot(out, r.path, r.name, r.key);
+        // Opera & some single-profile builds keep "Login Data" in the root itself.
+        const QString directLogin = r.path + "/Login Data";
+        if (QFile::exists(directLogin)) {
+            bool already = false;
+            for (const auto& e : out) if (e.loginData == directLogin) { already = true; break; }
+            if (!already) out.append({QString(r.name), "chromium", "Default", r.path, directLogin, QString(r.key)});
+        }
+    }
+
+    // Firefox — native, Flatpak and Snap locations.
+    const QStringList ffRoots = {
+        home + "/.mozilla/firefox",
+        var + "/org.mozilla.firefox/.mozilla/firefox",
+        snap + "/firefox/common/.mozilla/firefox",
+    };
+    for (const QString& ff : ffRoots) {
+        QDir ffd(ff);
+        if (!ffd.exists()) continue;
         for (const QString& sub : ffd.entryList(QDir::Dirs | QDir::NoDotAndDotDot)) {
             QString logins = ff + "/" + sub + "/logins.json";
-            if (QFile::exists(logins))
-                out.append({"Firefox", "firefox", sub, ff + "/" + sub, logins, QString()});
+            if (QFile::exists(logins)) {
+                bool already = false;
+                for (const auto& e : out) if (e.loginData == logins) { already = true; break; }
+                if (!already) out.append({"Firefox", "firefox", sub, ff + "/" + sub, logins, QString()});
+            }
         }
     }
     return out;

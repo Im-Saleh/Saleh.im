@@ -65,8 +65,11 @@ export default function PulsePage() {
   const [url, setUrl] = useState("");
   const [ready, setReady] = useState(false);
   const [checking, setChecking] = useState(false);
+  const [notify, setNotify] = useState(false);
   const monitorsRef = useRef<Monitor[]>([]);
   monitorsRef.current = monitors;
+  const notifyRef = useRef(false);
+  notifyRef.current = notify;
 
   const T = fa
     ? { back: "بازگشت", brand: "پالس", tagline: "صفحهٔ وضعیت و مانیتورِ آپ‌تایم", add: "افزودن مانیتور", namePh: "نام (مثلاً وب‌سایت من)", urlPh: "https://example.com", allUp: "همهٔ سیستم‌ها برقرارند", someDown: "اختلال در برخی سیستم‌ها", checking: "در حال بررسی…", checkNow: "بررسی همه", up: "برقرار", down: "قطع", uptime: "آپ‌تایم", latency: "تأخیر", lastCheck: "آخرین بررسی", noData: "هنوز داده‌ای نیست — در حال بررسی…", remove: "حذف", incidents: "رخدادها", noIncidents: "هیچ رخدادی ثبت نشده. عالیه!", down2: "قطع شد", up2: "بازیابی شد", justNow: "همین حالا", ago: "پیش", secs: "ثانیه", mins: "دقیقه", hrs: "ساعت", monitors: "مانیتورها", empty: "هنوز مانیتوری اضافه نکرده‌ای.", note: "بررسی‌ها از مرورگرِ تو انجام می‌شوند؛ زمانِ رفت‌وبرگشت واقعی است." }
@@ -85,9 +88,25 @@ export default function PulsePage() {
     setChecking(true);
     const results = await Promise.all(list.map((m) => probe(m.url).then((c) => [m.id, c] as const)));
     const map = new Map(results);
+    // Fire a desktop notification the moment a monitor transitions up → down.
+    if (notifyRef.current && typeof Notification !== "undefined" && Notification.permission === "granted") {
+      for (const m of list) {
+        const c = map.get(m.id); if (!c) continue;
+        const prev = m.history[m.history.length - 1];
+        if (c.up === false && (!prev || prev.up)) {
+          try { new Notification(`⚠️ ${m.name} is down`, { body: m.url, tag: m.id }); } catch {}
+        }
+      }
+    }
     setMonitors((prev) => prev.map((m) => { const c = map.get(m.id); return c ? { ...m, history: [...m.history, c].slice(-MAX_HISTORY) } : m; }));
     setChecking(false);
   }, []);
+
+  const toggleNotify = () => {
+    if (typeof Notification === "undefined") return;
+    if (Notification.permission === "granted") { setNotify((n) => !n); return; }
+    Notification.requestPermission().then((p) => setNotify(p === "granted"));
+  };
 
   useEffect(() => {
     if (!ready) return;
@@ -150,6 +169,7 @@ export default function PulsePage() {
           <span className="hidden items-center gap-2 sm:flex"><span className="grid h-8 w-8 place-items-center rounded-xl text-lg" style={{ background: "linear-gradient(135deg,var(--accent),var(--accent-2))", color: "var(--on-accent)" }}>◉</span><span className="font-display text-lg">{T.brand}</span></span>
         </div>
         <div className="flex items-center gap-2">
+          <button onClick={toggleNotify} className="btn btn-outline h-9 px-3 py-0 text-xs" style={{ opacity: notify ? 1 : 0.6 }} title={fa ? "اعلانِ قطعی" : "Down alerts"}>{notify ? "🔔" : "🔕"}</button>
           <button onClick={runChecks} disabled={checking} className="btn btn-outline h-9 px-3 py-0 text-xs disabled:opacity-50">{checking ? T.checking : "↻ " + T.checkNow}</button>
           <ThemePicker /><LangToggle />
         </div>
