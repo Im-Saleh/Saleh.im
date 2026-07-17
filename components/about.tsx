@@ -16,7 +16,7 @@ export function About() {
           <div className="lg:col-span-4">
             <Reveal>
               <p className="label">{t.about.eyebrow}</p>
-              <div className="mt-6 panel elev sheen glow-border relative overflow-hidden p-6">
+              <div className="mt-6 panel elev sheen shine glow-border relative overflow-hidden p-6">
                 <div className="conic-sheen" aria-hidden style={{ opacity: 0.12 }} />
                 <div className="relative flex items-center gap-4">
                   <span className="relative grid h-16 w-16 place-items-center overflow-hidden rounded-2xl font-display text-3xl" style={{ background: "var(--accent)", color: "var(--on-accent)", boxShadow: "0 10px 30px -8px var(--glow)" }}>

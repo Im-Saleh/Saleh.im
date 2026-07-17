@@ -8,6 +8,8 @@
 
 #include <algorithm>
 
+#include "effects.hpp"
+
 CommandPalette::CommandPalette(const QVector<Item>& items, QWidget* parent)
     : QDialog(parent), items_(items) {
     setWindowFlags(Qt::Dialog | Qt::FramelessWindowHint);
@@ -36,6 +38,7 @@ CommandPalette::CommandPalette(const QVector<Item>& items, QWidget* parent)
 
     refilter(QString());
     search_->setFocus();
+    fx::popIn(this, 140);
 }
 
 // A light subsequence fuzzy match with contiguity + word-boundary bonuses.

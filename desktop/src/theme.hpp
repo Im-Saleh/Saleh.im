@@ -145,6 +145,7 @@ QToolTip { background: %BG2%; color: %FG%; border: 1px solid %LINE2%; padding: 5
 
 #sidebar { background: %BG2%; border-right: 1px solid %LINE%; }
 #detail  { background: %BG2%; border-left: 1px solid %LINE%; }
+#sidebarInner, #detailInner { background: %BG2%; }
 #topbar  { background: %BG%; }
 #card    { background: %BG2%; border: 1px solid %LINE%; border-radius: 16px; }
 #hero    { background: qlineargradient(x1:0,y1:0,x2:1,y2:1, stop:0 %ACCSOFT%, stop:1 transparent);

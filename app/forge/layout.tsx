@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Forge — developer toolbox",
   description:
-    "Forge is a fast, private developer toolbox by Saleh — JSON formatter, Base64/URL/HTML/JWT tools, hashing, UUID/ULID generators, a colour studio, regex tester, cron explainer, diff, markdown preview and more. Everything runs in your browser.",
+    "Forge is a fast, private developer toolbox by Saleh with 70+ tools — JSON/CSV/TypeScript, Base64/Base58/URL/HTML/JWT, AES encryption, hashing, UUID/ULID/password/mock-data generators, a colour studio, regex tester, cron explainer, diff, markdown, unit/base/number converters, CSS gradient/shadow/bezier generators, HTTP status reference and more. Everything runs in your browser.",
   keywords: [
     "developer tools",
     "json formatter",

@@ -18,6 +18,7 @@
 #include <QVBoxLayout>
 
 #include "crypto.hpp"
+#include "effects.hpp"
 #include "generator.hpp"
 #include "theme.hpp"
 
@@ -319,6 +320,7 @@ EntryDialog::EntryDialog(const vault::Entry& e, const QVector<vault::Folder>& fo
         totpTimer_->start(1000);
         refreshTotp();
     }
+    fx::popIn(this);
 }
 
 void EntryDialog::refreshTotp() {

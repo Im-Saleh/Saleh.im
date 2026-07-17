@@ -27,7 +27,7 @@ export function Contact() {
               <h2 className="display mt-4 max-w-3xl text-5xl leading-tight sm:text-7xl">
                 {t.contact.heading1}
                 <br />
-                <span className="display-italic accent-text">{t.contact.heading2}</span>
+                <span className="display-italic gradient-text">{t.contact.heading2}</span>
               </h2>
               <p className="mt-6 max-w-xl text-lg text-[var(--fg-2)]">{t.contact.sub}</p>
 
@@ -38,7 +38,7 @@ export function Contact() {
                     href={c.href}
                     target={c.ext ? "_blank" : undefined}
                     rel="noopener noreferrer"
-                    className="group relative flex flex-col gap-2 rounded-2xl border p-6 lift glow-border sheen"
+                    className="group relative flex flex-col gap-2 rounded-2xl border p-6 card-lift glow-border sheen shine"
                     style={{ background: "var(--bg-3)", borderColor: "var(--line)", animation: "popIn .5s cubic-bezier(.22,1,.36,1) both", animationDelay: `${i * 80}ms` }}
                   >
                     <span className="label">{c.label}</span>

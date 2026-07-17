@@ -11,6 +11,7 @@
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QFrame>
+#include <QGridLayout>
 #include <QHBoxLayout>
 #include <QIcon>
 #include <QKeySequence>
@@ -28,6 +29,7 @@
 #include <QPushButton>
 #include <QScrollArea>
 #include <QShortcut>
+#include <QVariantAnimation>
 #include <QSize>
 #include <QSystemTrayIcon>
 #include <QTimer>
@@ -35,6 +37,7 @@
 #include <QVBoxLayout>
 
 #include <algorithm>
+#include <functional>
 
 #include "authdialog.hpp"
 #include "commandpalette.hpp"
@@ -160,6 +163,7 @@ void MainWindow::buildUi() {
     sideScroll->setFrameShape(QFrame::NoFrame);
     sideScroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     sidebar_ = new QWidget();
+    sidebar_->setObjectName("sidebarInner");
     sidebarLayout_ = new QVBoxLayout(sidebar_);
     sidebarLayout_->setContentsMargins(10, 14, 10, 14);
     sidebarLayout_->setSpacing(2);
@@ -201,6 +205,7 @@ void MainWindow::buildUi() {
     }
     newBtn->setMenu(newMenu);
     top->addWidget(newBtn);
+    fx::pulseGlow(newBtn, QColor(theme::accent(data_.settings.theme)), 8, 24, 2400);
 
     auto ghost = [&](const QString& glyph, const QString& tip, auto slot) {
         auto* b = new QPushButton(glyph, mid);
@@ -258,6 +263,7 @@ void MainWindow::buildUi() {
     scroll->setFixedWidth(392);
     scroll->setFrameShape(QFrame::NoFrame);
     detail_ = new QWidget();
+    detail_->setObjectName("detailInner");
     detailLayout_ = new QVBoxLayout(detail_);
     detailLayout_->setContentsMargins(20, 20, 20, 20);
     detailLayout_->setSpacing(10);
@@ -358,6 +364,7 @@ void MainWindow::rebuildSidebar() {
             filter_ = key;
             rebuildSidebar();
             rebuildList();
+            fx::fadeIn(list_, 260);
         });
         sidebarLayout_->addWidget(b);
     };
@@ -400,6 +407,7 @@ void MainWindow::rebuildSidebar() {
     addLabel("");
     addBtn("trash", "🗑  Trash");
     sidebarLayout_->addStretch();
+    fx::fadeIn(sidebar_, 240);
 }
 
 void MainWindow::rebuildList() {
@@ -544,10 +552,115 @@ void MainWindow::showDetail(const QString& id) {
     }
     const vault::Entry* e = findEntry(id);
     if (!e) {
-        auto* empty = new QLabel("Select an item, or press ＋ New.", detail_);
-        empty->setObjectName("muted");
-        empty->setAlignment(Qt::AlignCenter);
-        detailLayout_->addWidget(empty);
+        // ---- animated "home" dashboard shown when nothing is selected ----
+        vault::Stats st = vault::computeStats(data_);
+        vault::Audit au = vault::audit(data_.entries, data_.settings.passwordAgeDays);
+
+        auto* hero = new QFrame(detail_);
+        hero->setObjectName("hero");
+        auto* hv = new QVBoxLayout(hero);
+        hv->setContentsMargins(18, 16, 18, 16);
+        auto* hi = new QLabel("🔓  VAULT UNLOCKED", hero);
+        hi->setObjectName("label");
+        auto* ht = new QLabel(st.total > 0 ? QString("%1 items secured").arg(st.total) : "Your vault is empty", hero);
+        ht->setObjectName("h2");
+        hv->addWidget(hi);
+        hv->addWidget(ht);
+        detailLayout_->addWidget(hero);
+        fx::fadeInDelayed(hero, 320, 0);
+
+        struct SC { QString v; QString l; QString col; };
+        QVector<SC> cards = {
+            {QString::number(st.total), "ITEMS", QString()},
+            {QString::number(au.weak.size()), "WEAK", au.weak.size() ? QString("#ef4444") : QString()},
+            {QString::number(st.withTotp), "WITH 2FA", QString("#22c55e")},
+            {QString::number(st.favorites), "FAVORITES", QString()},
+        };
+        auto* grid = new QGridLayout();
+        grid->setSpacing(8);
+        for (int i = 0; i < cards.size(); ++i) {
+            auto* c = new QFrame(detail_);
+            c->setObjectName("card");
+            auto* cv = new QVBoxLayout(c);
+            cv->setContentsMargins(14, 12, 14, 12);
+            auto* bignum = new QLabel(cards[i].v, c);
+            bignum->setObjectName("bigstat");
+            if (!cards[i].col.isEmpty()) bignum->setStyleSheet(QString("color:%1;").arg(cards[i].col));
+            // count-up animation from 0 → value
+            int target = cards[i].v.toInt();
+            if (target > 0 && target <= 99999) {
+                bignum->setText("0");
+                auto* anim = new QVariantAnimation(bignum);
+                anim->setStartValue(0);
+                anim->setEndValue(target);
+                anim->setDuration(750);
+                anim->setEasingCurve(QEasingCurve::OutCubic);
+                connect(anim, &QVariantAnimation::valueChanged, bignum, [bignum](const QVariant& v) { bignum->setText(QString::number(v.toInt())); });
+                QTimer::singleShot(140 + i * 70, bignum, [anim] { anim->start(QAbstractAnimation::DeleteWhenStopped); });
+            }
+            auto* lab = new QLabel(cards[i].l, c);
+            lab->setObjectName("label");
+            cv->addWidget(bignum);
+            cv->addWidget(lab);
+            grid->addWidget(c, i / 2, i % 2);
+            fx::fadeInDelayed(c, 300, 90 + i * 70);
+        }
+        detailLayout_->addLayout(grid);
+
+        auto* qaLabel = new QLabel("QUICK ACTIONS", detail_);
+        qaLabel->setObjectName("label");
+        qaLabel->setContentsMargins(2, 10, 0, 2);
+        detailLayout_->addWidget(qaLabel);
+        struct QA { QString label; std::function<void()> fn; };
+        QVector<QA> actions = {
+            {"🔑  New login", [this] { newEntry("login"); }},
+            {"🎲  Generator", [this] { openGenerator(); }},
+            {"📊  Dashboard", [this] { openStats(); }},
+            {"🛡  Security audit", [this] { openAudit(); }},
+        };
+        for (int i = 0; i < actions.size(); ++i) {
+            auto* b = new QPushButton(actions[i].label, detail_);
+            b->setObjectName("nav");
+            auto fn = actions[i].fn;
+            connect(b, &QPushButton::clicked, this, [fn] { fn(); });
+            detailLayout_->addWidget(b);
+            fx::fadeInDelayed(b, 280, 260 + i * 60);
+        }
+
+        // recent items
+        QVector<const vault::Entry*> recent;
+        for (const auto& x : data_.entries)
+            if (!x.trashed) recent.append(&x);
+        std::sort(recent.begin(), recent.end(), [](const vault::Entry* a, const vault::Entry* b) {
+            return (a->usedAt ? a->usedAt : a->updated) > (b->usedAt ? b->usedAt : b->updated);
+        });
+        if (!recent.isEmpty()) {
+            auto* rl = new QLabel("RECENT", detail_);
+            rl->setObjectName("label");
+            rl->setContentsMargins(2, 10, 0, 2);
+            detailLayout_->addWidget(rl);
+            int shown = 0;
+            for (const vault::Entry* r : recent) {
+                if (shown >= 5) break;
+                auto* b = new QPushButton(QString("%1  %2").arg(entryIcon(*r), r->title.isEmpty() ? "—" : r->title), detail_);
+                b->setObjectName("nav");
+                QString rid = r->id;
+                connect(b, &QPushButton::clicked, this, [this, rid] {
+                    for (int i = 0; i < list_->count(); ++i)
+                        if (list_->item(i)->data(Qt::UserRole).toString() == rid) { list_->setCurrentRow(i); return; }
+                    showDetail(rid);
+                });
+                detailLayout_->addWidget(b);
+                fx::fadeInDelayed(b, 260, 460 + shown * 55);
+                shown++;
+            }
+        }
+
+        auto* tip = new QLabel("🔒 Everything is encrypted locally with Argon2id + XChaCha20-Poly1305. Press Ctrl+K for the command palette.", detail_);
+        tip->setObjectName("muted");
+        tip->setWordWrap(true);
+        tip->setContentsMargins(2, 12, 2, 0);
+        detailLayout_->addWidget(tip);
         detailLayout_->addStretch();
         return;
     }

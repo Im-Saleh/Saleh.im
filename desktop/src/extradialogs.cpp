@@ -22,6 +22,7 @@
 #include <algorithm>
 
 #include "crypto.hpp"
+#include "effects.hpp"
 #include "theme.hpp"
 
 // ---------------------------------------------------------------------------
@@ -116,6 +117,7 @@ ThemePickerDialog::ThemePickerDialog(const QString& currentId, QWidget* parent)
         reject();
     });
     root->addWidget(bb);
+    fx::popIn(this);
 }
 
 // ---------------------------------------------------------------------------
@@ -313,6 +315,7 @@ StatsDialog::StatsDialog(const vault::Data& data, QWidget* parent) : QDialog(par
     connect(bb, &QDialogButtonBox::rejected, this, &QDialog::accept);
     connect(bb, &QDialogButtonBox::accepted, this, &QDialog::accept);
     root->addWidget(bb);
+    fx::popIn(this);
 }
 
 // ---------------------------------------------------------------------------

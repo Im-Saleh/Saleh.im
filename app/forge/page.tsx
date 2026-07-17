@@ -5,6 +5,16 @@ import Link from "next/link";
 import { TOOLS, CATEGORIES } from "./tools";
 import { ThemePicker } from "@/components/theme-picker";
 
+const CAT_COLOR: Record<string, string> = {
+  Data: "#38bdf8",
+  Encode: "#a78bfa",
+  Generate: "#22c55e",
+  Convert: "#fbbf24",
+  Text: "#f472b6",
+  CSS: "#22d3ee",
+  Web: "#fb7185",
+};
+
 export default function ForgePage() {
   const [activeId, setActiveId] = useState(TOOLS[0].id);
   const [query, setQuery] = useState("");
@@ -103,19 +113,19 @@ export default function ForgePage() {
                             setActiveId(t.id);
                             setNavOpen(false);
                           }}
-                          className="group flex items-center gap-3 rounded-xl px-2.5 py-2 text-start text-sm transition-all"
+                          className="group flex items-center gap-3 rounded-xl px-2.5 py-2 text-start text-sm transition-all hover:translate-x-0.5"
                           style={
                             t.id === activeId
-                              ? { background: "var(--bg-3)", boxShadow: "inset 2px 0 0 var(--accent)" }
+                              ? { background: "var(--bg-3)", boxShadow: `inset 2px 0 0 ${CAT_COLOR[t.category] || "var(--accent)"}` }
                               : {}
                           }
                         >
                           <span
-                            className="mono grid h-7 w-7 shrink-0 place-items-center rounded-lg text-xs transition-colors"
+                            className="mono grid h-7 w-7 shrink-0 place-items-center rounded-lg text-xs transition-all group-hover:scale-110"
                             style={{
-                              background: t.id === activeId ? "var(--accent)" : "var(--bg-3)",
-                              color: t.id === activeId ? "var(--on-accent)" : "var(--fg-2)",
-                              border: "1px solid var(--line)",
+                              background: t.id === activeId ? (CAT_COLOR[t.category] || "var(--accent)") : `color-mix(in srgb, ${CAT_COLOR[t.category] || "var(--accent)"} 12%, transparent)`,
+                              color: t.id === activeId ? "#0b0c0e" : (CAT_COLOR[t.category] || "var(--fg-2)"),
+                              border: `1px solid color-mix(in srgb, ${CAT_COLOR[t.category] || "var(--line)"} 24%, transparent)`,
                             }}
                           >
                             {t.icon}
