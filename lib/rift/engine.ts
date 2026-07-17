@@ -295,6 +295,7 @@ export class RiftGame {
   private keys = new Set<string>();
   private pointer = { x: 0, y: 0, down: false, active: false };
   private hudAcc = 0;
+  private themeObserver: MutationObserver | null = null;
 
   constructor(canvas: HTMLCanvasElement, opts: { onHud: (h: Hud) => void; onState: (s: GameState) => void; onRunEnd?: (r: RunResult) => void; onToast?: (text: string) => void }) {
     this.canvas = canvas;
@@ -306,10 +307,29 @@ export class RiftGame {
     this.onRunEnd = opts.onRunEnd;
     this.onToast = opts.onToast;
     this.readTheme();
+    this.observeTheme();
     this.resize();
     this.bindInput();
     this.loop = this.loop.bind(this);
     this.raf = requestAnimationFrame(this.loop);
+  }
+
+  // Re-read the palette whenever the site theme changes so the whole game
+  // (background, core, bullets, HUD accents…) recolours live — previously the
+  // colours were only sampled once at construction / run start, so switching
+  // theme appeared to do nothing on the canvas.
+  private observeTheme() {
+    try {
+      this.themeObserver = new MutationObserver(() => this.readTheme());
+      this.themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+    } catch {
+      /* SSR / no DOM — colours simply stay at their defaults */
+    }
+  }
+
+  /** Force an immediate palette refresh (e.g. after a manual theme change). */
+  refreshTheme() {
+    this.readTheme();
   }
 
   // -- audio passthroughs used by the settings panel -----------------------
@@ -384,6 +404,8 @@ export class RiftGame {
     this.canvas.removeEventListener("pointerdown", this.onPointerDown);
     this.canvas.removeEventListener("pointermove", this.onPointerMove);
     window.removeEventListener("pointerup", this.onPointerUp);
+    this.themeObserver?.disconnect();
+    this.themeObserver = null;
     this.audio.dispose();
   }
 

@@ -431,8 +431,8 @@ export default function LumenPage() {
         </div>
       </header>
 
-      {/* live ticker */}
-      <div className="edge-fade overflow-hidden border-b py-2" style={{ borderColor: "var(--line)", background: "var(--bg-2)" }}>
+      {/* live ticker — dir=ltr keeps the seamless marquee loop intact under RTL */}
+      <div dir="ltr" className="edge-fade overflow-hidden border-b py-2" style={{ borderColor: "var(--line)", background: "var(--bg-2)" }}>
         <div className="marquee">{[...coins, ...coins].map((c, i) => (
           <button key={i} onClick={() => loadDetail(c.id)} className="mx-4 inline-flex items-center gap-2 text-sm force-ltr"><b className="uppercase">{c.symbol}</b><span className="mono">{money(c.price)}</span><span className="mono" style={{ color: c.change24h >= 0 ? "#22c55e" : "#ef4444" }}>{pct(c.change24h)}</span></button>
         ))}</div>

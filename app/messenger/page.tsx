@@ -33,13 +33,14 @@ type Msg = {
   text?: string;
   dataUrl?: string;
   ts: number;
-  status?: "sent" | "seen";
+  status?: "pending" | "sent" | "seen";
   reply?: Reply;
   reactions?: Reactions;
   dur?: number;
   file?: { name: string; size: number; mime: string };
   progress?: number;
   edited?: boolean;
+  deleted?: boolean;
 };
 type Convo = { peer: string; handle: string; name: string; messages: Msg[]; unread: number; typing: boolean };
 type ConnState = { conn: any; keyPair?: CryptoKeyPair; keys?: SessionKeys; ready: boolean; handle: string };
@@ -221,11 +222,37 @@ export default function MessengerPage() {
   const recTimer = useRef<any>(null);
   const recStart = useRef(0);
   const fileRecv = useRef<Record<string, { name: string; mime: string; total: number; parts: string[]; got: number }>>({});
+  // Reliability: text messages composed while the channel is down are queued
+  // here and flushed the moment the secure handshake completes.
+  const outboxRef = useRef<Record<string, { id: string; text: string; reply: Reply }[]>>({});
+  // Auto-reconnect bookkeeping per peer (attempt count + pending timer).
+  const reconnectRef = useRef<Record<string, { attempts: number; timer: any }>>({});
 
   useEffect(() => { activeRef.current = active; }, [active]);
   useEffect(() => { soundRef.current = soundOn; }, [soundOn]);
   useEffect(() => { notifyRef.current = notify; }, [notify]);
   useEffect(() => { localStreamRef.current = localStream; }, [localStream]);
+
+  // Reflect the total unread count in the browser tab title so a background
+  // conversation is noticeable without the tab focused.
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const total = Object.values(convos).reduce((n, c) => n + c.unread, 0);
+    const base = "Cipher — encrypted messenger";
+    document.title = total > 0 ? `(${total}) ${base}` : base;
+    return () => { document.title = base; };
+  }, [convos]);
+
+  // Tidy up all timers + the peer connection when the page unmounts.
+  useEffect(() => {
+    const reconnects = reconnectRef.current;
+    const pings = pingTimer.current;
+    return () => {
+      Object.values(reconnects).forEach((r) => r?.timer && clearTimeout(r.timer));
+      Object.values(pings).forEach((t) => clearInterval(t));
+      try { peerRef.current?.destroy(); } catch {}
+    };
+  }, []);
 
   // attach media streams to video elements
   useEffect(() => {
@@ -267,6 +294,7 @@ export default function MessengerPage() {
         micDenied: "دسترسی به میکروفون/دوربین رد شد.",
         edit: "ویرایش", copyText: "کپیِ متن", save: "ذخیره", edited: "ویرایش‌شده", emoji: "ایموجی",
         editing: "در حالِ ویرایش", dropHere: "فایل را برای ارسال اینجا رها کن", notif: "اعلانِ دسکتاپ", jump: "پرش به پیام",
+        deleteEveryone: "حذف برای همه", msgDeleted: "این پیام حذف شد", reconnecting: "در حالِ اتصالِ دوباره…", queued: "در صف — با اتصال ارسال می‌شود", sentWhenOnline: "وقتی طرف آنلاین شود ارسال می‌شود",
       }
     : {
         title: "Cipher", tag: "End-to-end encrypted peer-to-peer messenger",
@@ -288,6 +316,7 @@ export default function MessengerPage() {
         micDenied: "Microphone / camera access denied.",
         edit: "Edit", copyText: "Copy text", save: "Save", edited: "edited", emoji: "Emoji",
         editing: "Editing", dropHere: "Drop file to send", notif: "Desktop notifications", jump: "Jump to message",
+        deleteEveryone: "Delete for everyone", msgDeleted: "This message was deleted", reconnecting: "reconnecting…", queued: "Queued — will send when connected", sentWhenOnline: "Will send once they're online",
       };
 
   const nameOf = (c: Convo) => c.handle.split("#")[0];
@@ -345,6 +374,27 @@ export default function MessengerPage() {
     if (cs?.conn?.open) cs.conn.send(JSON.stringify(obj));
   };
 
+  // Holds the latest wireConn so the auto-reconnect timer can re-wire a fresh
+  // connection without a circular hook dependency.
+  const wireConnRef = useRef<((conn: any) => void) | null>(null);
+
+  // Flush any text messages that were queued while the channel was down. Called
+  // as soon as the secure handshake completes.
+  const flushOutbox = useCallback(async (peer: string) => {
+    const q = outboxRef.current[peer];
+    const cs = connsRef.current[peer];
+    if (!q || !q.length || !cs?.keys || !cs.conn?.open) return;
+    outboxRef.current[peer] = [];
+    for (const item of q) {
+      try {
+        send(peer, { t: "msg", id: item.id, kind: "text", c: await seal(cs.keys, item.text), reply: item.reply });
+        upsert(peer, (c) => ({ ...c, messages: c.messages.map((m) => (m.id === item.id ? { ...m, status: "sent" } : m)) }), false);
+      } catch {
+        (outboxRef.current[peer] = outboxRef.current[peer] || []).push(item);
+      }
+    }
+  }, [upsert]);
+
   const beginHandshake = useCallback(async (peer: string) => {
     const cs = connsRef.current[peer];
     if (!cs) return;
@@ -372,6 +422,7 @@ export default function MessengerPage() {
           cs.ready = true;
           upsert(peer, (c) => ({ ...c, handle: cs.handle, name: cs.handle.split("#")[0], messages: [...c.messages, { id: crypto.randomUUID(), mine: false, kind: "system", text: `🔒 ${T.established} ${cs.handle}`, ts: Date.now() }] }), false);
           startPing(peer);
+          flushOutbox(peer); // send anything queued while we were offline
         } catch {}
       } else if (data.t === "msg" && cs.keys) {
         try {
@@ -409,6 +460,9 @@ export default function MessengerPage() {
           const text = await openSeal(cs.keys, data.c);
           upsert(peer, (c) => ({ ...c, messages: c.messages.map((m) => (m.id === data.id ? { ...m, text, edited: true } : m)) }));
         } catch {}
+      } else if (data.t === "unsend") {
+        // The sender retracted a message — replace it with a tombstone.
+        upsert(peer, (c) => ({ ...c, messages: c.messages.map((m) => (m.id === data.id ? { ...m, deleted: true, text: "", dataUrl: undefined, reactions: {}, kind: "text" } : m)) }));
       } else if (data.t === "typing") {
         upsert(peer, (c) => ({ ...c, typing: !!data.on }), false);
       } else if (data.t === "seen") {
@@ -430,7 +484,7 @@ export default function MessengerPage() {
         setLatency((l) => ({ ...l, [peer]: Date.now() - data.ts }));
       }
     },
-    [addMsg, upsert, startPing, T.established]
+    [addMsg, upsert, startPing, flushOutbox, T.established]
   );
 
   const wireConn = useCallback(
@@ -441,6 +495,8 @@ export default function MessengerPage() {
       conn.on("open", () => {
         setConvos((prev) => (prev[peer] ? prev : { ...prev, [peer]: { peer, handle: connsRef.current[peer].handle, name: connsRef.current[peer].handle.split("#")[0], messages: [], unread: 0, typing: false } }));
         setActive((a) => a ?? peer);
+        // a successful (re)connect clears the auto-reconnect backoff
+        if (reconnectRef.current[peer]) { clearTimeout(reconnectRef.current[peer].timer); reconnectRef.current[peer] = { attempts: 0, timer: null }; }
         beginHandshake(peer);
       });
       conn.on("data", (raw: any) => onData(peer, raw));
@@ -449,11 +505,31 @@ export default function MessengerPage() {
         clearInterval(pingTimer.current[peer]);
         setLatency((l) => { const n = { ...l }; delete n[peer]; return n; });
         upsert(peer, (c) => ({ ...c, messages: [...c.messages, { id: crypto.randomUUID(), mine: false, kind: "system", text: `⚠︎ ${c.handle} ${T.left}`, ts: Date.now() }] }), false);
+        // Auto-reconnect with exponential backoff so a dropped peer silently
+        // re-establishes the channel (and flushes any queued messages) without
+        // the user re-typing the handle.
+        const rec = reconnectRef.current[peer] || { attempts: 0, timer: null };
+        if (!rec.timer && rec.attempts < 6 && peerRef.current) {
+          const delayMs = Math.min(15000, 2500 * Math.pow(1.6, rec.attempts));
+          rec.attempts += 1;
+          rec.timer = setTimeout(() => {
+            rec.timer = null;
+            if (!connsRef.current[peer]?.conn?.open && peerRef.current) {
+              try {
+                const nc = peerRef.current.connect(peer, { reliable: true });
+                wireConnRef.current?.(nc);
+              } catch {}
+            }
+          }, delayMs);
+        }
+        reconnectRef.current[peer] = rec;
       });
       conn.on("error", () => {});
     },
     [beginHandshake, onData, upsert, T.left]
   );
+  // Keep the ref pointed at the latest wireConn for the reconnect timer.
+  wireConnRef.current = wireConn;
 
   const connectTo = useCallback(
     (raw: string) => {
@@ -614,17 +690,26 @@ export default function MessengerPage() {
   const sendText = async () => {
     if (editing) return saveEdit();
     const text = input.trim();
-    const cs = active ? connsRef.current[active] : null;
-    if (!text || !active || !cs?.keys || !cs.conn?.open) return;
+    if (!text || !active) return;
+    const cs = connsRef.current[active];
     setInput("");
     const id = crypto.randomUUID();
     const reply: Reply = replyTo ? { id: replyTo.id, preview: (replyTo.text || (replyTo.kind === "voice" ? "🎙️" : "🖼️")).slice(0, 70), mine: replyTo.mine } : null;
     setReplyTo(null);
-    try {
-      send(active, { t: "msg", id, kind: "text", c: await seal(cs.keys, text), reply });
-      addMsg(active, { id, mine: true, kind: "text", text, ts: Date.now(), status: "sent", reply });
-      if (soundRef.current) blip("out");
-    } catch {}
+    if (cs?.keys && cs.conn?.open) {
+      try {
+        send(active, { t: "msg", id, kind: "text", c: await seal(cs.keys, text), reply });
+        addMsg(active, { id, mine: true, kind: "text", text, ts: Date.now(), status: "sent", reply });
+        if (soundRef.current) blip("out");
+      } catch {}
+    } else {
+      // Channel isn't up yet — queue the message, show it as pending, and try
+      // to (re)establish the connection so the outbox flushes on handshake.
+      (outboxRef.current[active] = outboxRef.current[active] || []).push({ id, text, reply });
+      addMsg(active, { id, mine: true, kind: "text", text, ts: Date.now(), status: "pending", reply });
+      const handle = connsRef.current[active]?.handle;
+      if (handle && !cs?.conn?.open) connectTo(handle);
+    }
   };
 
   const sendImage = async (file: File) => {
@@ -726,6 +811,12 @@ export default function MessengerPage() {
     }));
   };
   const deleteMsg = (msg: Msg) => { if (active) upsert(active, (c) => ({ ...c, messages: c.messages.filter((m) => m.id !== msg.id) })); };
+  const deleteForEveryone = (msg: Msg) => {
+    if (!active || !msg.mine) return;
+    send(active, { t: "unsend", id: msg.id });
+    if (outboxRef.current[active]) outboxRef.current[active] = outboxRef.current[active].filter((o) => o.id !== msg.id);
+    upsert(active, (c) => ({ ...c, messages: c.messages.map((m) => (m.id === msg.id ? { ...m, deleted: true, text: "", dataUrl: undefined, reactions: {}, kind: "text" } : m)) }));
+  };
 
   const startEdit = (msg: Msg) => { if (!msg.mine || msg.kind !== "text") return; setReplyTo(null); setEditing(msg); setInput(msg.text || ""); requestAnimationFrame(() => textareaRef.current?.focus()); };
   const cancelEdit = () => { setEditing(null); setInput(""); };
@@ -1021,7 +1112,9 @@ export default function MessengerPage() {
                         <div id={`msg-${m.id}`} className="relative max-w-[80%] transition-all duration-300 hover:-translate-y-0.5" style={highlightId === m.id ? { boxShadow: "0 0 0 2px var(--accent)", borderRadius: 18 } : undefined}>
                           <div className="msg-bubble rounded-2xl px-3.5 py-2 text-[14.5px] leading-relaxed" style={m.mine ? { background: "linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 78%, var(--accent-2)))", color: "var(--on-accent)", borderEndEndRadius: 5, boxShadow: "0 6px 18px -10px var(--glow)" } : { background: "var(--bg-3)", borderEndStartRadius: 5, boxShadow: "0 4px 14px -10px var(--shadow)" }}>
                             {m.reply && <button onClick={() => m.reply && jumpTo(m.reply.id)} className="mb-1.5 block w-full rounded-lg border-s-2 px-2 py-1 text-start text-xs opacity-80 transition-opacity hover:opacity-100" style={{ borderColor: m.mine ? "rgba(0,0,0,0.35)" : "var(--accent)", background: m.mine ? "rgba(0,0,0,0.08)" : "var(--bg-2)" }}>{m.reply.preview}</button>}
-                            {m.kind === "image" ? (
+                            {m.deleted ? (
+                              <span className="flex items-center gap-1.5 italic opacity-70"><Icon name="trash" size={13} /> {T.msgDeleted}</span>
+                            ) : m.kind === "image" ? (
                               m.dataUrl ? <img src={m.dataUrl} alt="" className="max-h-64 rounded-lg" /> : <div className="grid h-32 w-48 place-items-center rounded-lg" style={{ background: "rgba(0,0,0,0.1)" }}>{m.progress ?? 0}%</div>
                             ) : m.kind === "voice" ? (
                               <VoicePlayer src={m.dataUrl} dur={m.dur} mine={m.mine} />
@@ -1042,7 +1135,7 @@ export default function MessengerPage() {
                             <span className="mt-1 flex items-center justify-end gap-1 text-[10px]" style={{ opacity: 0.7 }}>
                               {m.edited && <span className="italic">{T.edited}</span>}
                               <span className="mono force-ltr">{time(m.ts)}</span>
-                              {m.mine && <span>{m.status === "seen" ? "✓✓" : "✓"}</span>}
+                              {m.mine && <span title={m.status === "pending" ? T.queued : undefined}>{m.status === "pending" ? "🕓" : m.status === "seen" ? "✓✓" : "✓"}</span>}
                             </span>
                           </div>
                           {reactions.length > 0 && (
@@ -1060,7 +1153,8 @@ export default function MessengerPage() {
                           <button onClick={() => setReactFor(reactFor === m.id ? null : m.id)} className="grid h-6 w-6 place-items-center rounded-full transition-transform hover:scale-110 hover:text-[var(--accent)]" style={{ background: "var(--bg-2)", border: "1px solid var(--line)" }} title={T.react}><Icon name="smile" size={12} /></button>
                           <button onClick={() => setReplyTo(m)} className="grid h-6 w-6 place-items-center rounded-full transition-transform hover:scale-110 hover:text-[var(--accent)]" style={{ background: "var(--bg-2)", border: "1px solid var(--line)" }} title={T.reply}><Icon name="reply" size={12} /></button>
                           {m.kind === "text" && <button onClick={() => copyMsgText(m)} className="grid h-6 w-6 place-items-center rounded-full transition-transform hover:scale-110 hover:text-[var(--accent)]" style={{ background: "var(--bg-2)", border: "1px solid var(--line)" }} title={T.copyText}><Icon name={copied === "m-" + m.id ? "check" : "copy"} size={12} /></button>}
-                          {m.mine && m.kind === "text" && <button onClick={() => startEdit(m)} className="grid h-6 w-6 place-items-center rounded-full transition-transform hover:scale-110 hover:text-[var(--accent)]" style={{ background: "var(--bg-2)", border: "1px solid var(--line)" }} title={T.edit}><Icon name="edit" size={12} /></button>}
+                          {m.mine && m.kind === "text" && !m.deleted && <button onClick={() => startEdit(m)} className="grid h-6 w-6 place-items-center rounded-full transition-transform hover:scale-110 hover:text-[var(--accent)]" style={{ background: "var(--bg-2)", border: "1px solid var(--line)" }} title={T.edit}><Icon name="edit" size={12} /></button>}
+                          {m.mine && !m.deleted && <button onClick={() => deleteForEveryone(m)} className="grid h-6 w-6 place-items-center rounded-full transition-transform hover:scale-110 hover:text-[#ff6a6a]" style={{ background: "var(--bg-2)", border: "1px solid var(--line)" }} title={T.deleteEveryone}><Icon name="trash" size={12} /></button>}
                           <button onClick={() => deleteMsg(m)} className="grid h-6 w-6 place-items-center rounded-full transition-transform hover:scale-110 hover:text-[#ff6a6a]" style={{ background: "var(--bg-2)", border: "1px solid var(--line)" }} title={T.del}><Icon name="x" size={12} /></button>
                         </div>
                       </div>
@@ -1111,9 +1205,9 @@ export default function MessengerPage() {
                     <button onClick={() => fileRef.current?.click()} disabled={attaching} className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border transition-all hover:scale-105 hover:border-[var(--accent)] hover:text-[var(--accent)] disabled:opacity-50" style={{ borderColor: "var(--line-2)" }} title={T.file}>{attaching ? <span className="animate-pulse">…</span> : <Icon name="clip" size={18} />}</button>
                     <button onClick={() => setShowEmoji((s) => !s)} className="hidden h-11 w-11 shrink-0 place-items-center rounded-xl border transition-all hover:scale-105 hover:border-[var(--accent)] hover:text-[var(--accent)] sm:grid" style={{ borderColor: "var(--line-2)", color: showEmoji ? "var(--accent)" : undefined }} title={T.emoji}><Icon name="smile" size={18} /></button>
                     <input ref={fileRef} type="file" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) (f.type.startsWith("image/") ? sendImage(f) : sendFile(f)); e.currentTarget.value = ""; }} />
-                    <textarea ref={textareaRef} value={input} onChange={(e) => { setInput(e.target.value); if (!editing) onType(); }} onPaste={(e) => { const f = e.clipboardData?.files?.[0]; if (f && f.type.startsWith("image/")) { e.preventDefault(); sendImage(f); } }} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendText(); } else if (e.key === "Escape" && editing) cancelEdit(); }} rows={1} placeholder={editing ? `${T.editing}…` : T.typeMsg} disabled={!curReady} className="max-h-32 min-h-[44px] flex-1 resize-none rounded-xl border px-4 py-2.5 text-[var(--fg)] outline-none disabled:opacity-50" style={{ background: "var(--bg-3)", borderColor: editing ? "var(--accent)" : "var(--line)" }} />
+                    <textarea ref={textareaRef} value={input} onChange={(e) => { setInput(e.target.value); if (!editing && curReady) onType(); }} onPaste={(e) => { const f = e.clipboardData?.files?.[0]; if (f && f.type.startsWith("image/")) { e.preventDefault(); sendImage(f); } }} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendText(); } else if (e.key === "Escape" && editing) cancelEdit(); }} rows={1} placeholder={editing ? `${T.editing}…` : curReady ? T.typeMsg : T.sentWhenOnline} className="max-h-32 min-h-[44px] flex-1 resize-none rounded-xl border px-4 py-2.5 text-[var(--fg)] outline-none" style={{ background: "var(--bg-3)", borderColor: editing ? "var(--accent)" : "var(--line)" }} />
                     {input.trim() ? (
-                      <button onClick={sendText} disabled={!curReady} className="grid h-11 w-11 shrink-0 place-items-center rounded-xl disabled:opacity-40" style={{ background: "var(--accent)", color: "var(--on-accent)" }} title={editing ? T.save : undefined}>
+                      <button onClick={sendText} className="grid h-11 w-11 shrink-0 place-items-center rounded-xl" style={{ background: "var(--accent)", color: "var(--on-accent)" }} title={editing ? T.save : undefined}>
                         {editing ? (
                           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
                         ) : (

@@ -21,6 +21,7 @@ import { AudioEngine } from "./audio";
 import { AiActor, BotMemory, DifficultyProfile, bfsNextStep, botName, difficultyById, newBotMemory, think } from "./ai";
 import { GameMap, ItemSpawn, Vec2, isWall, mapById, materialById, pickSpawn } from "./maps";
 import { PerkDef, WeaponDef, damageAtRange, perkById, weaponById } from "./weapons";
+import { drawWeaponViewModel } from "./viewmodels";
 
 // ---------------------------------------------------------------------------
 //  Public types
@@ -149,6 +150,10 @@ interface Actor {
   attackCooldown: number; // zombie melee swing timer
   lungeT: number;         // 0..1 zombie attack-lunge animation
   gaitPhase: number;      // sprite limb-animation phase
+  z: number;              // vertical height off the ground (jumping)
+  velZ: number;           // vertical velocity
+  crouch: number;         // 0 = standing, 1 = fully crouched (smoothed)
+  landT: number;          // brief landing-dip animation timer
 }
 
 interface Projectile {
@@ -239,6 +244,19 @@ const COUNTDOWN_TIME = 3;
 const PICKUP_RESPAWN = 16;
 const MAX_RENDER_DIST = 30;
 const ARMOR_ABSORB = 0.5; // armor absorbs 50% of incoming damage until depleted
+
+// --- Movement feel (v3): momentum + jumping + crouch --------------------
+// Velocity is no longer snapped instantly to the input direction; instead the
+// player accelerates toward a "wish" velocity and coasts to a stop, which
+// gives real weight and lets you carry speed around corners.
+const GROUND_ACCEL = 14;     // how fast we approach the wish velocity on foot
+const GROUND_FRICTION = 11;  // how fast we bleed speed when there's no input
+const AIR_ACCEL = 4.5;       // limited air control while jumping
+const GRAVITY = 20;          // world units / s^2 applied to the jump arc
+const JUMP_VELOCITY = 6.6;   // initial upward velocity of a jump
+const CROUCH_SPEED_MULT = 0.52;
+const CROUCH_EYE_DROP = 0.34; // how far the camera lowers when fully crouched
+const JUMP_EYE_RISE = 0.9;    // camera-height → screen-pitch scale while airborne
 
 // Undead horde tuning.
 const ZOMBIE_HEALTH = 70;
@@ -344,6 +362,10 @@ export class VanguardEngine {
   private hitMarker = 0;
   private damageFlash = 0;
   private zbuffer: Float64Array;
+  private cols = 1;          // number of raycast columns (device-resolution)
+  private wallX = new Float64Array(1); // per-column texture coordinate (0..1)
+  private wallMat = new Int16Array(1); // per-column hit material id
+  private wallSide = new Int8Array(1); // per-column wall side (0/1)
 
   private redScore = 0;
   private blueScore = 0;
@@ -435,6 +457,10 @@ export class VanguardEngine {
       attackCooldown: 0,
       lungeT: 0,
       gaitPhase: Math.random() * Math.PI * 2,
+      z: 0,
+      velZ: 0,
+      crouch: 0,
+      landT: 0,
     };
   }
 
@@ -461,13 +487,22 @@ export class VanguardEngine {
 
   resize() {
     const rect = this.canvas.getBoundingClientRect();
-    this.dpr = Math.min(1.6, window.devicePixelRatio || 1);
+    // Render at true device resolution (capped at 2×) for a crisp image, and
+    // cast one ray per *device* column rather than per CSS pixel so the world
+    // is far sharper than the previous build.
+    this.dpr = Math.min(2, window.devicePixelRatio || 1);
     this.w = Math.max(1, Math.round(rect.width));
     this.h = Math.max(1, Math.round(rect.height));
     this.canvas.width = Math.round(this.w * this.dpr);
     this.canvas.height = Math.round(this.h * this.dpr);
     this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
-    this.zbuffer = new Float64Array(this.w);
+    // Cast one ray per device column, capped so very large / high-DPI screens
+    // stay at a smooth frame-rate (still far sharper than the old CSS-pixel cast).
+    this.cols = Math.max(1, Math.min(2048, Math.round(this.w * this.dpr)));
+    this.zbuffer = new Float64Array(this.cols);
+    this.wallX = new Float64Array(this.cols);
+    this.wallMat = new Int16Array(this.cols);
+    this.wallSide = new Int8Array(this.cols);
   }
 
   private bindInput() {
@@ -495,6 +530,8 @@ export class VanguardEngine {
   private onKeyDown = (e: KeyboardEvent) => {
     const k = e.key.toLowerCase();
     this.keys.add(k);
+    // Space (jump) and the arrow keys would otherwise scroll the page.
+    if (k === " " || k === "spacebar" || k.startsWith("arrow")) e.preventDefault();
     if (k === "r") this.requestReload();
     if (k === "q") this.swapWeapon();
     if (k === "escape") this.releasePointer();
@@ -708,9 +745,24 @@ export class VanguardEngine {
     a.angle = normalizeAngle(a.angle + this.mouseDX * this.sensitivity);
     this.mouseDX = 0;
 
-    a.sprinting = this.keys.has("shift") && my > 0 && !a.ads;
-    const speedMult = weaponById(a.weaponId).moveMult * (a.sprinting ? SPRINT_MULT : 1) * (a.ads ? 0.55 : 1);
+    const onGround = a.z <= 1e-4;
+    const wantsCrouch = this.keys.has("control") || this.keys.has("c");
+    // Smoothly blend the crouch pose so the camera glides down/up.
+    a.crouch += (( wantsCrouch ? 1 : 0) - a.crouch) * Math.min(1, dt * 12);
 
+    a.ads = this.rightDown;
+    a.sprinting = this.keys.has("shift") && my > 0 && !a.ads && !wantsCrouch && onGround;
+
+    const speedMult =
+      weaponById(a.weaponId).moveMult *
+      (a.sprinting ? SPRINT_MULT : 1) *
+      (a.ads ? 0.55 : 1) *
+      (a.crouch > 0.5 ? CROUCH_SPEED_MULT : 1);
+
+    // Build the desired ("wish") velocity from input, then accelerate toward
+    // it instead of snapping — this is what gives the movement momentum.
+    let wishX = 0;
+    let wishY = 0;
     const len = Math.hypot(mx, my);
     if (len > 0) {
       mx /= len;
@@ -720,15 +772,25 @@ export class VanguardEngine {
       const dirX = forward.x * my + right.x * mx * STRAFE_MULT;
       const dirY = forward.y * my + right.y * mx * STRAFE_MULT;
       const dl = Math.hypot(dirX, dirY) || 1;
-      a.velX = (dirX / dl) * MOVE_SPEED * speedMult;
-      a.velY = (dirY / dl) * MOVE_SPEED * speedMult;
-    } else {
-      a.velX = 0;
-      a.velY = 0;
+      wishX = (dirX / dl) * MOVE_SPEED * speedMult;
+      wishY = (dirY / dl) * MOVE_SPEED * speedMult;
     }
 
-    a.ads = this.rightDown;
-    a.bobPhase += dt * (len > 0 ? (a.sprinting ? 11 : 8) : 3);
+    const rate = onGround ? (len > 0 ? GROUND_ACCEL : GROUND_FRICTION) : AIR_ACCEL;
+    const k = Math.min(1, rate * dt);
+    a.velX += (wishX - a.velX) * k;
+    a.velY += (wishY - a.velY) * k;
+
+    // Jump — only from the ground.
+    if ((this.keys.has(" ") || this.keys.has("spacebar")) && onGround && a.velZ === 0) {
+      a.velZ = JUMP_VELOCITY;
+      this.audio.play("pickup", 0.25);
+    }
+
+    // Head-bob speed scales with how fast we're actually moving.
+    const speed = Math.hypot(a.velX, a.velY);
+    a.bobPhase += dt * (speed > 0.2 ? (a.sprinting ? 12 : 8) * (0.4 + speed / (MOVE_SPEED * 1.7)) : 3);
+    if (a.landT > 0) a.landT = Math.max(0, a.landT - dt * 4);
 
     if (this.mouseDown) this.tryFire(a);
     if (a.magAmmo[a.weaponId] <= 0 && this.mouseDown) this.requestReload();
@@ -823,13 +885,25 @@ export class VanguardEngine {
 
   private integrateActor(a: Actor, dt: number) {
     if (a.isRemote) return; // net.ts positions remote actors directly
-    let nx = a.x + a.velX * dt;
-    let ny = a.y + a.velY * dt;
+    const nx = a.x + a.velX * dt;
+    const ny = a.y + a.velY * dt;
 
     // Axis-separated collision so the actor slides along walls instead of
     // sticking when moving diagonally into a corner.
     if (!this.solidCircle(nx, a.y, a.radius)) a.x = nx;
     if (!this.solidCircle(a.x, ny, a.radius)) a.y = ny;
+
+    // Vertical motion (jump arc). Only the human/bots with velZ ever leave the
+    // floor; everyone else keeps z pinned at 0 with no cost.
+    if (a.z > 0 || a.velZ !== 0) {
+      a.velZ -= GRAVITY * dt;
+      a.z += a.velZ * dt;
+      if (a.z <= 0) {
+        if (a.velZ < -3) a.landT = 1; // trigger a small landing dip
+        a.z = 0;
+        a.velZ = 0;
+      }
+    }
   }
 
   private solidCircle(x: number, y: number, r: number): boolean {
@@ -1388,7 +1462,11 @@ export class VanguardEngine {
 
     const a = this.local;
     const bobY = Math.sin(a.bobPhase) * (Math.hypot(a.velX, a.velY) > 0.1 ? 3.5 : 0.6);
-    const horizon = h / 2 + bobY;
+    // Camera pitch shifts the horizon: jumping raises the eye (see more floor),
+    // crouching lowers it, and a fresh landing gives a short downward dip.
+    const camZ = a.z * JUMP_EYE_RISE - a.crouch * CROUCH_EYE_DROP;
+    const landDip = a.landT > 0 ? Math.sin(a.landT * Math.PI) * 12 : 0;
+    const horizon = h / 2 + bobY - camZ * (h * 0.26) + landDip;
 
     // sky/ceiling — a vertical gradient adds real depth vs the old flat fill.
     const ceil = ctx.createLinearGradient(0, 0, 0, horizon);
@@ -1446,9 +1524,11 @@ export class VanguardEngine {
     const dirY = Math.sin(a.angle);
     const planeX = Math.cos(a.angle + Math.PI / 2) * Math.tan(FOV / 2);
     const planeY = Math.sin(a.angle + Math.PI / 2) * Math.tan(FOV / 2);
+    const cols = this.cols;
+    const colW = w / cols;
 
-    for (let col = 0; col < w; col++) {
-      const camX = (2 * col) / w - 1;
+    for (let c = 0; c < cols; c++) {
+      const camX = (2 * c) / cols - 1;
       const rayDirX = dirX + planeX * camX;
       const rayDirY = dirY + planeY * camX;
 
@@ -1491,30 +1571,52 @@ export class VanguardEngine {
 
       const perpDist = side === 0 ? (mapX - a.x + (1 - stepX) / 2) / (rayDirX || 1e-9) : (mapY - a.y + (1 - stepY) / 2) / (rayDirY || 1e-9);
       const dist = Math.max(0.05, Math.abs(perpDist));
-      this.zbuffer[col] = dist;
+      this.zbuffer[c] = dist;
+      this.wallMat[c] = material;
+      this.wallSide[c] = side as 0 | 1;
 
-      const lineHeight = Math.min(h * 3, h / dist);
+      // Exact hit point along the wall face → texture coordinate 0..1.
+      let wx = side === 0 ? a.y + perpDist * rayDirY : a.x + perpDist * rayDirX;
+      wx -= Math.floor(wx);
+      this.wallX[c] = wx;
+
+      const lineHeight = Math.min(h * 4, h / dist);
       const drawStart = horizon - lineHeight / 2;
-      const drawHeight = lineHeight;
+      const sx = c * colW;
 
       const mat = materialById(material);
+      // Distance fog + side shading + a vertical grain that varies with the
+      // exact hit coordinate so flat fills read as a real, lit surface.
       const shade = clamp(this.map.ambient - dist / MAX_RENDER_DIST, 0.08, 1);
       const base = side === 1 ? mat.shade : mat.base;
-      const color = shadeColor(base, shade);
+      const freq = mat.texture === "brick" ? 9 : mat.texture === "panel" ? 6 : mat.texture === "tech" ? 14 : mat.texture === "crate" ? 4 : 10;
+      const grain = 0.85 + 0.15 * Math.sin(wx * Math.PI * 2 * freq);
+      ctx.fillStyle = shadeColor(base, clamp(shade * grain, 0.06, 1));
+      ctx.fillRect(sx, drawStart, colW + 0.7, lineHeight);
 
-      ctx.fillStyle = color;
-      ctx.fillRect(col, drawStart, 1, drawHeight);
-
-      // Cheap per-material texture: a couple of horizontal seams / speckle
-      // bands drawn as thin darker strips so flat colour fills read as walls.
-      if (mat.texture === "brick" || mat.texture === "panel" || mat.texture === "crate" || mat.texture === "tech") {
-        const bandCount = mat.texture === "crate" ? 3 : 4;
-        ctx.globalAlpha = 0.22;
-        ctx.fillStyle = shadeColor(mat.shade, shade);
-        for (let b = 1; b < bandCount; b++) {
-          const by = drawStart + (drawHeight * b) / bandCount;
-          ctx.fillRect(col, by, 1, Math.max(1, drawHeight * 0.03));
+      // Surface detail — only worth drawing when the wall is tall enough on
+      // screen (i.e. reasonably close), which also keeps the cost bounded.
+      const detailed = mat.texture === "brick" || mat.texture === "panel" || mat.texture === "crate" || mat.texture === "tech" || mat.texture === "concrete";
+      if (detailed && lineHeight > 46) {
+        const rows = mat.texture === "crate" ? 3 : mat.texture === "tech" ? 6 : 5;
+        ctx.globalAlpha = 0.3;
+        ctx.fillStyle = shadeColor(mat.shade, shade * 0.62);
+        for (let b = 1; b < rows; b++) {
+          const by = drawStart + (lineHeight * b) / rows;
+          ctx.fillRect(sx, by, colW + 0.7, Math.max(1, lineHeight * 0.02));
         }
+        // Vertical mortar / seam lines at the tile edges.
+        if ((mat.texture === "brick" || mat.texture === "crate" || mat.texture === "panel") && (wx < 0.05 || wx > 0.95)) {
+          ctx.fillRect(sx, drawStart, colW + 0.7, lineHeight);
+        }
+        ctx.globalAlpha = 1;
+      }
+
+      // A subtle contact-shadow at the very base of the wall grounds it.
+      if (lineHeight > 30) {
+        ctx.globalAlpha = 0.22;
+        ctx.fillStyle = "#000";
+        ctx.fillRect(sx, drawStart + lineHeight - Math.max(1, lineHeight * 0.03), colW + 0.7, Math.max(1, lineHeight * 0.03));
         ctx.globalAlpha = 1;
       }
     }
@@ -1563,13 +1665,16 @@ export class VanguardEngine {
       const zOffset = s.z ? (h / dist) * s.z : 0;
       const top = horizon - spriteH / 2 - zOffset + (s.kind === "actor" ? 0 : spriteH * 0.9);
 
-      // occlusion: sample the z-buffer under the sprite's screen columns
-      const colStart = Math.max(0, Math.floor(screenX - spriteW / 2));
-      const colEnd = Math.min(w - 1, Math.ceil(screenX + spriteW / 2));
-      if (colEnd < 0 || colStart >= w) continue;
+      // occlusion: sample the z-buffer (device-resolution) under the sprite's
+      // screen columns — screenX/spriteW are in CSS px, so map into columns.
+      const cScale = this.cols / w;
+      const colStart = Math.max(0, Math.floor((screenX - spriteW / 2) * cScale));
+      const colEnd = Math.min(this.cols - 1, Math.ceil((screenX + spriteW / 2) * cScale));
+      if (colEnd < 0 || colStart >= this.cols) continue;
       let visibleCols = 0;
       let sampleCount = 0;
-      for (let c = colStart; c <= colEnd; c += Math.max(1, Math.floor((colEnd - colStart) / 6) || 1)) {
+      const stepC = Math.max(1, Math.floor((colEnd - colStart) / 6) || 1);
+      for (let c = colStart; c <= colEnd; c += stepC) {
         sampleCount++;
         if (this.zbuffer[c] === undefined || dist < this.zbuffer[c] + 0.15) visibleCols++;
       }
@@ -1599,19 +1704,8 @@ export class VanguardEngine {
       ctx.restore();
     }
 
-    // muzzle flash overlay for the local weapon.
-    if (a.fireCooldown > 0 && a.recoilKick > 0.05) {
-      ctx.save();
-      ctx.globalAlpha = clamp(a.recoilKick, 0, 0.9);
-      const g = ctx.createRadialGradient(w / 2, h * 0.72, 4, w / 2, h * 0.72, 90);
-      g.addColorStop(0, "#fff7d6");
-      g.addColorStop(1, "transparent");
-      ctx.fillStyle = g;
-      ctx.beginPath();
-      ctx.arc(w / 2, h * 0.72, 90, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
-    }
+    // (The muzzle flash is now drawn by the detailed weapon viewmodel so it
+    //  lines up with the barrel instead of the screen centre.)
   }
 
   // Draw a single enemy as an animated, shaded humanoid — an armed soldier or
@@ -1753,9 +1847,9 @@ export class VanguardEngine {
     ctx.restore();
   }
 
-  // Stylised first-person weapon viewmodel — a procedural gun that sways with
-  // movement, dips during reloads and kicks with recoil. Distinct silhouette
-  // per category so the equipped weapon is instantly readable.
+  // First-person weapon viewmodel — delegates to the dedicated high-detail
+  // vector renderer in viewmodels.ts, feeding it the current animation state
+  // (sway, recoil kick, reload progress and muzzle-flash intensity).
   private drawViewModel(ctx: CanvasRenderingContext2D, a: Actor, w: number, h: number) {
     const wpn = weaponById(a.weaponId);
     const moving = Math.hypot(a.velX, a.velY) > 0.15;
@@ -1763,169 +1857,24 @@ export class VanguardEngine {
     const bobX = Math.cos(a.bobPhase * 0.5) * (moving ? 8 : 2);
     const recoil = clamp(a.recoilKick, 0, 1);
     const reloadTime = wpn.reloadTime || 1;
-    const reloadDip = a.reloadTimer > 0 ? Math.sin(clamp(1 - a.reloadTimer / reloadTime, 0, 1) * Math.PI) * 90 : 0;
+    const reloadProgress = a.reloadTimer > 0 ? clamp(1 - a.reloadTimer / reloadTime, 0, 1) : 0;
+    // The flash is brightest in the first instant after firing.
+    const fire = a.fireCooldown > 0 && recoil > 0.05 ? clamp(recoil * 1.5, 0, 1) : 0;
 
-    const scale = Math.min(w, h) / 560;
-    ctx.save();
-    ctx.translate(w * 0.5 + bobX, h + bobY + recoil * 26 + reloadDip);
-    ctx.scale(scale, scale);
-    ctx.rotate(-0.06 + recoil * 0.05);
-
-    const body = wpn.color;
-    const dark = shadeColor(body, 0.5);
-    const metal = "#23262c";
-    const hands = "#c6a06e";
-    const rr = (x: number, y: number, ww: number, hh: number, r = 6) => {
-      ctx.beginPath();
-      if (typeof (ctx as CanvasRenderingContext2D & { roundRect?: unknown }).roundRect === "function") {
-        (ctx as CanvasRenderingContext2D & { roundRect: (x: number, y: number, w: number, h: number, r: number) => void }).roundRect(x, y, ww, hh, r);
-      } else {
-        ctx.rect(x, y, ww, hh);
-      }
-      ctx.fill();
-    };
-
-    // muzzle flash first (behind the barrel), when just fired
-    if (recoil > 0.12) {
-      const mx = -150;
-      const my = -150;
-      ctx.save();
-      ctx.globalAlpha = clamp(recoil * 1.4, 0, 1);
-      const g = ctx.createRadialGradient(mx, my, 2, mx, my, 70);
-      g.addColorStop(0, "#fff7d6");
-      g.addColorStop(0.5, "#ffb020");
-      g.addColorStop(1, "transparent");
-      ctx.fillStyle = g;
-      ctx.beginPath();
-      ctx.arc(mx, my, 70, 0, Math.PI * 2);
-      ctx.fill();
-      // star spikes
-      ctx.strokeStyle = "#fff2c0";
-      ctx.lineWidth = 6;
-      for (let i = 0; i < 4; i++) {
-        const ang = (i * Math.PI) / 2 + recoil;
-        ctx.beginPath();
-        ctx.moveTo(mx, my);
-        ctx.lineTo(mx + Math.cos(ang) * 46, my + Math.sin(ang) * 46);
-        ctx.stroke();
-      }
-      ctx.restore();
-    }
-
-    switch (wpn.category) {
-      case "melee": {
-        ctx.fillStyle = hands;
-        rr(60, -120, 46, 90, 14); // fist
-        ctx.fillStyle = "#3a3f47";
-        rr(74, -170, 18, 60, 6); // handle
-        ctx.fillStyle = "#d7dde6";
-        ctx.beginPath();
-        ctx.moveTo(74, -168);
-        ctx.lineTo(92, -168);
-        ctx.lineTo(120, -250);
-        ctx.lineTo(86, -180);
-        ctx.closePath();
-        ctx.fill();
-        break;
-      }
-      case "launcher": {
-        ctx.fillStyle = dark;
-        rr(-180, -180, 360, 46, 20); // big tube
-        ctx.fillStyle = body;
-        rr(120, -186, 70, 58, 16); // warhead
-        ctx.fillStyle = metal;
-        rr(-40, -140, 60, 70, 8); // grip housing
-        ctx.fillStyle = hands;
-        rr(-10, -110, 44, 84, 14);
-        rr(120, -120, 40, 80, 14);
-        break;
-      }
-      case "sniper": {
-        ctx.fillStyle = metal;
-        rr(-190, -150, 380, 26, 8); // long barrel
-        ctx.fillStyle = body;
-        rr(-10, -168, 180, 52, 12); // receiver
-        ctx.fillStyle = dark;
-        rr(20, -210, 120, 26, 12); // scope tube
-        ctx.fillStyle = "#0b0d10";
-        rr(120, -214, 26, 34, 6); // scope eyepiece
-        ctx.fillStyle = dark;
-        rr(150, -120, 40, 120, 10); // stock/grip
-        ctx.fillStyle = body;
-        rr(30, -110, 26, 70, 6); // mag
-        ctx.fillStyle = hands;
-        rr(150, -110, 44, 90, 14);
-        rr(-20, -108, 42, 80, 14);
-        break;
-      }
-      case "shotgun": {
-        ctx.fillStyle = dark;
-        rr(-170, -158, 320, 34, 12); // barrel
-        ctx.fillStyle = "#6b4a2a";
-        rr(120, -150, 90, 34, 10); // wood stock
-        rr(-40, -120, 100, 26, 8); // pump
-        ctx.fillStyle = body;
-        rr(30, -160, 120, 46, 12); // receiver
-        ctx.fillStyle = hands;
-        rr(-20, -112, 44, 78, 14); // pump hand
-        rr(150, -118, 44, 86, 14); // trigger hand
-        break;
-      }
-      case "lmg": {
-        ctx.fillStyle = metal;
-        rr(-190, -160, 360, 30, 10); // barrel
-        ctx.fillStyle = body;
-        rr(0, -178, 190, 64, 14); // big receiver
-        ctx.fillStyle = dark;
-        rr(30, -118, 120, 70, 14); // ammo box
-        rr(160, -130, 46, 110, 10); // stock
-        ctx.fillStyle = hands;
-        rr(150, -120, 46, 92, 14);
-        rr(-30, -116, 44, 82, 14);
-        break;
-      }
-      case "smg": {
-        ctx.fillStyle = metal;
-        rr(-120, -150, 220, 24, 8); // short barrel
-        ctx.fillStyle = body;
-        rr(0, -168, 150, 50, 12); // receiver
-        ctx.fillStyle = dark;
-        rr(40, -120, 34, 96, 8); // long mag
-        rr(140, -130, 34, 92, 8); // folding stock
-        ctx.fillStyle = hands;
-        rr(120, -120, 44, 86, 14);
-        rr(20, -116, 40, 78, 14);
-        break;
-      }
-      case "pistol": {
-        ctx.fillStyle = body;
-        rr(20, -160, 150, 40, 10); // slide
-        ctx.fillStyle = dark;
-        rr(40, -128, 40, 84, 8); // grip
-        rr(48, -120, 24, 70, 6); // mag
-        ctx.fillStyle = hands;
-        rr(30, -110, 48, 84, 16);
-        break;
-      }
-      default: {
-        // rifle
-        ctx.fillStyle = metal;
-        rr(-180, -152, 300, 24, 8); // barrel
-        ctx.fillStyle = body;
-        rr(-10, -170, 180, 52, 12); // receiver
-        ctx.fillStyle = dark;
-        rr(150, -124, 46, 116, 10); // stock
-        rr(30, -118, 32, 96, 8); // curved mag
-        ctx.fillStyle = "#0b0d10";
-        rr(40, -200, 70, 20, 8); // rail sight
-        ctx.fillStyle = hands;
-        rr(150, -114, 46, 90, 14); // trigger hand
-        rr(-20, -110, 44, 82, 14); // fore hand
-        break;
-      }
-    }
-
-    ctx.restore();
+    drawWeaponViewModel(ctx, {
+      weaponId: wpn.id,
+      category: wpn.category,
+      color: wpn.color,
+      w,
+      h,
+      bobX,
+      bobY,
+      recoil,
+      reloadProgress,
+      ads: a.ads,
+      fire,
+      time: this.matchTime,
+    });
   }
 }
 
