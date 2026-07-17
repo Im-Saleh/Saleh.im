@@ -673,3 +673,187 @@ QVector<vault::Folder> FolderManagerDialog::folders() const {
     }
     return out;
 }
+
+
+// ---------------------------------------------------------------------------
+//  LiveMonitorDialog
+// ---------------------------------------------------------------------------
+static QString relativeTime(qint64 msEpoch) {
+    const qint64 secs = (QDateTime::currentMSecsSinceEpoch() - msEpoch) / 1000;
+    if (secs < 5) return "just now";
+    if (secs < 60) return QString("%1s ago").arg(secs);
+    if (secs < 3600) return QString("%1m ago").arg(secs / 60);
+    if (secs < 86400) return QString("%1h ago").arg(secs / 3600);
+    return QString("%1d ago").arg(secs / 86400);
+}
+
+LiveMonitorDialog::LiveMonitorDialog(bimport::LiveMonitor* monitor, bool startEnabled, QWidget* parent)
+    : QDialog(parent), monitor_(monitor), enabled_(startEnabled) {
+    setWindowTitle("Live browser-login monitor");
+    setModal(false);  // stays usable while the app keeps running around it
+    setMinimumSize(640, 620);
+    auto* root = new QVBoxLayout(this);
+
+    auto* title = new QLabel("Live browser-login monitor", this);
+    title->setObjectName("h2");
+    root->addWidget(title);
+    auto* sub = new QLabel(
+        "While this is on, Vault watches Chrome, Chromium, Brave, Edge, Vivaldi, Opera and Firefox's saved-login "
+        "files and reports the instant a new sign-in is stored — which site, which account, and whether it was a "
+        "password or a \"Sign in with…\" provider. Everything is read locally; nothing is sent anywhere.",
+        this);
+    sub->setObjectName("muted");
+    sub->setWordWrap(true);
+    root->addWidget(sub);
+
+    // header: status pill + on/off toggle
+    auto* head = new QFrame(this);
+    head->setObjectName("card");
+    auto* headL = new QHBoxLayout(head);
+    headL->setContentsMargins(14, 12, 14, 12);
+    auto* dot = new QLabel(head);
+    dot->setFixedSize(10, 10);
+    dot->setStyleSheet(QString("background:%1; border-radius:5px;").arg(enabled_ ? "#4ade80" : "#8b929e"));
+    headL->addWidget(dot);
+    status_ = new QLabel(enabled_ ? "Starting…" : "Monitor is off.", head);
+    status_->setObjectName("h3");
+    headL->addWidget(status_, 1);
+    countBadge_ = new QLabel(head);
+    countBadge_->setStyleSheet("background:rgba(74,222,128,0.16); color:#4ade80; border-radius:999px; padding:3px 10px; font-weight:700; font-size:11px;");
+    countBadge_->setVisible(false);
+    headL->addWidget(countBadge_);
+    toggleBtn_ = new QPushButton(enabled_ ? "Turn off" : "Turn on", head);
+    toggleBtn_->setObjectName(enabled_ ? "ghost" : "accent");
+    connect(toggleBtn_, &QPushButton::clicked, this, [this] { setRunning(!enabled_); });
+    headL->addWidget(toggleBtn_);
+    root->addWidget(head);
+
+    // toolbar: rescan + clear + mark all reviewed
+    auto* tb = new QHBoxLayout();
+    auto* rescanBtn = new QPushButton("↻ Check now", this);
+    connect(rescanBtn, &QPushButton::clicked, this, [this] { if (monitor_) monitor_->rescanNow(); });
+    auto* markBtn = new QPushButton("Mark all reviewed", this);
+    markBtn->setObjectName("chip");
+    connect(markBtn, &QPushButton::clicked, this, [this] { if (monitor_) monitor_->markAllReviewed(); rebuildFeed(); });
+    auto* clearBtn = new QPushButton("Clear feed", this);
+    clearBtn->setObjectName("chip");
+    connect(clearBtn, &QPushButton::clicked, this, [this] { if (monitor_) monitor_->clearFeed(); rebuildFeed(); });
+    tb->addWidget(rescanBtn);
+    tb->addWidget(markBtn);
+    tb->addWidget(clearBtn);
+    tb->addStretch();
+    root->addLayout(tb);
+
+    auto* feedTitle = new QLabel("Session feed", this);
+    feedTitle->setObjectName("h3");
+    root->addWidget(feedTitle);
+
+    auto* scroll = new QScrollArea(this);
+    scroll->setWidgetResizable(true);
+    scroll->setFrameShape(QFrame::NoFrame);
+    auto* inner = new QWidget();
+    feedLayout_ = new QVBoxLayout(inner);
+    feedLayout_->setContentsMargins(0, 0, 0, 0);
+    feedLayout_->setSpacing(6);
+    feedLayout_->addStretch();
+    scroll->setWidget(inner);
+    root->addWidget(scroll, 1);
+
+    auto* bb = new QDialogButtonBox(QDialogButtonBox::Close, this);
+    connect(bb, &QDialogButtonBox::rejected, this, &QDialog::reject);
+    connect(bb, &QDialogButtonBox::accepted, this, &QDialog::accept);
+    root->addWidget(bb);
+
+    if (monitor_) {
+        connect(monitor_, &bimport::LiveMonitor::statusChanged, this, [this](const QString& t) { status_->setText(t); });
+        connect(monitor_, &bimport::LiveMonitor::feedChanged, this, [this] { rebuildFeed(); });
+    }
+    rebuildFeed();
+    fx::popIn(this);
+}
+
+void LiveMonitorDialog::setRunning(bool on) {
+    enabled_ = on;
+    toggleBtn_->setText(on ? "Turn off" : "Turn on");
+    toggleBtn_->setObjectName(on ? "ghost" : "accent");
+    toggleBtn_->style()->unpolish(toggleBtn_);
+    toggleBtn_->style()->polish(toggleBtn_);
+    if (on) { if (monitor_) monitor_->start(); }
+    else { if (monitor_) monitor_->stop(); status_->setText("Monitor is off."); }
+    emit enabledChanged(on);
+}
+
+void LiveMonitorDialog::rebuildFeed() {
+    // clear (keep the trailing stretch)
+    QLayoutItem* item;
+    while (feedLayout_->count() > 1 && (item = feedLayout_->takeAt(0)) != nullptr) {
+        if (item->widget()) item->widget()->deleteLater();
+        delete item;
+    }
+    if (!monitor_) return;
+
+    const auto& feed = monitor_->feed();
+    int unreviewed = 0;
+    for (const auto& e : feed) if (!e.reviewed) unreviewed++;
+    if (unreviewed > 0) {
+        countBadge_->setText(QString("%1 new").arg(unreviewed));
+        countBadge_->setVisible(true);
+    } else {
+        countBadge_->setVisible(false);
+    }
+
+    if (feed.isEmpty()) {
+        auto* empty = new QLabel("No sign-ins captured yet this session. Log into a site in your browser to see it "
+                                 "show up here instantly.", nullptr);
+        empty->setObjectName("muted");
+        empty->setWordWrap(true);
+        feedLayout_->insertWidget(0, empty);
+        return;
+    }
+
+    int insertAt = 0;
+    for (const auto& e : feed) {
+        const auto& c = e.cred;
+        auto* card = new QFrame();
+        card->setObjectName("card");
+        if (!e.reviewed) card->setStyleSheet("QFrame#card { border: 1.5px solid #4ade80; }");
+        auto* h = new QHBoxLayout(card);
+        h->setContentsMargins(12, 9, 12, 9);
+        h->setSpacing(10);
+
+        auto* badge = new QLabel(card);
+        badge->setPixmap(browserBadge(c.browser).pixmap(44, 30));
+        badge->setToolTip(c.browser);
+        h->addWidget(badge);
+
+        auto* mid = new QVBoxLayout();
+        mid->setSpacing(1);
+        auto* site = new QLabel(c.site.isEmpty() ? "—" : c.site, card);
+        site->setObjectName("h3");
+        QString who = c.username.isEmpty() ? bimport::methodLabel(c.method) : c.username;
+        auto* usr = new QLabel(who, card);
+        usr->setObjectName("muted");
+        mid->addWidget(site);
+        mid->addWidget(usr);
+        h->addLayout(mid, 1);
+
+        QColor mc = methodColor(c.method);
+        auto* chip = new QLabel(bimport::methodLabel(c.method), card);
+        chip->setStyleSheet(QString("background:%1; color:%2; border-radius:999px; padding:3px 10px; font-size:11px; font-weight:700;")
+                                .arg(QString("rgba(%1,%2,%3,0.16)").arg(mc.red()).arg(mc.green()).arg(mc.blue()), mc.name()));
+        h->addWidget(chip);
+
+        auto* when = new QLabel(relativeTime(e.seenAt), card);
+        when->setObjectName("muted");
+        when->setFixedWidth(64);
+        h->addWidget(when);
+
+        auto* addBtn = new QPushButton("Add to vault", card);
+        addBtn->setObjectName("chip");
+        connect(addBtn, &QPushButton::clicked, this, [this, c] { emit addToVaultRequested(c); });
+        h->addWidget(addBtn);
+
+        feedLayout_->insertWidget(insertAt++, card);
+    }
+}
+

@@ -217,6 +217,9 @@ static QJsonObject settingsToJson(const Settings& s) {
     o["passwordAgeDays"] = s.passwordAgeDays;
     o["defaultNewType"] = s.defaultNewType;
     o["startupView"] = s.startupView;
+    o["liveMonitorEnabled"] = s.liveMonitorEnabled;
+    o["liveMonitorAutoSave"] = s.liveMonitorAutoSave;
+    o["liveMonitorNotify"] = s.liveMonitorNotify;
     return o;
 }
 
@@ -236,6 +239,9 @@ static void settingsFromJson(const QJsonObject& s, Settings& out) {
     out.passwordAgeDays = s["passwordAgeDays"].toInt(365);
     out.defaultNewType = s["defaultNewType"].toString("login");
     out.startupView = s["startupView"].toString("all");
+    out.liveMonitorEnabled = s["liveMonitorEnabled"].toBool(false);
+    out.liveMonitorAutoSave = s["liveMonitorAutoSave"].toBool(false);
+    out.liveMonitorNotify = s["liveMonitorNotify"].toBool(true);
 }
 
 QByteArray serialize(const Data& d) {

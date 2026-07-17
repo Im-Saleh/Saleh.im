@@ -127,6 +127,9 @@ struct Settings {
     int passwordAgeDays = 365;   // audit "aging" threshold
     QString defaultNewType = "login";
     QString startupView = "all"; // sidebar filter selected on unlock
+    bool liveMonitorEnabled = false;  // watch browsers for new sign-ins in real time
+    bool liveMonitorAutoSave = false; // auto-add newly detected logins to the vault (else just feed + notify)
+    bool liveMonitorNotify = true;    // show a tray notification per detected sign-in
 };
 
 struct Folder {

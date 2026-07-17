@@ -159,6 +159,21 @@ MainWindow::MainWindow(const QString& path, const QString& password, const QByte
     applyTheme(data_.settings.theme);
     updateStats();
 
+    // Live browser-login monitor — created once for the app's whole lifetime
+    // so it keeps watching (and the tray badge keeps updating) whether or not
+    // its review dialog happens to be open right now.
+    liveMonitor_ = new bimport::LiveMonitor(this);
+    connect(liveMonitor_, &bimport::LiveMonitor::newLogin, this, [this](const bimport::Credential& c) {
+        if (data_.settings.liveMonitorAutoSave) addLiveCredentialToVault(c);
+        if (data_.settings.liveMonitorNotify && tray_ && tray_->isVisible()) {
+            const QString who = c.username.isEmpty() ? bimport::methodLabel(c.method) : c.username;
+            tray_->showMessage("New sign-in detected", QString("%1 — %2").arg(c.site.isEmpty() ? c.origin : c.site, who),
+                               QSystemTrayIcon::Information, 5000);
+        }
+        updateLiveMonitorBadge();
+    });
+    if (data_.settings.liveMonitorEnabled) liveMonitor_->start();
+
     // smooth window fade-in
     setWindowOpacity(0.0);
     auto* wa = new QPropertyAnimation(this, "windowOpacity", this);
@@ -266,6 +281,7 @@ void MainWindow::buildUi() {
     tbtn("dice", "Generate", "Password generator (Ctrl+G)", [this] { openGenerator(); });
     tbtn("chart", "Stats", "Dashboard (Ctrl+D)", [this] { openStats(); });
     tbtn("shield", "Audit", "Security audit", [this] { openAudit(); });
+    liveMonitorBtn_ = tbtn("browser", "Live", "Live browser-login monitor", [this] { openLiveMonitor(); });
 
     auto* moreBtn = new QPushButton("  More", mid);
     moreBtn->setIcon(lineIcon("dots", icoCol, 17));
@@ -273,6 +289,7 @@ void MainWindow::buildUi() {
     toolIcons_.append({moreBtn, "dots"});
     auto* moreMenu = new QMenu(moreBtn);
     moreMenu->addAction("Import from browsers…", this, [this] { importFromBrowsers(); });
+    moreMenu->addAction("Live browser-login monitor…", this, [this] { openLiveMonitor(); });
     moreMenu->addAction("Import file…", this, [this] { importItems(); });
     moreMenu->addAction("Export items…", this, [this] { exportItems(); });
     moreMenu->addSeparator();
@@ -337,6 +354,7 @@ void MainWindow::buildMenuBar() {
     }
     file->addSeparator();
     file->addAction("Import from browsers…", this, [this] { importFromBrowsers(); });
+    file->addAction("Live browser-login monitor…", this, [this] { openLiveMonitor(); });
     file->addAction("Import file…", this, [this] { importItems(); });
     file->addAction("Export…", this, [this] { exportItems(); });
     file->addAction("Encrypted backup…", this, &MainWindow::exportBackup);
@@ -668,6 +686,7 @@ void MainWindow::showDetail(const QString& id) {
         QVector<QA> actions = {
             {"🔑  New login", [this] { newEntry("login"); }},
             {"🌐  Import browser logins", [this] { importFromBrowsers(); }},
+            {QString("📡  Live monitor%1").arg(liveMonitor_ && liveMonitor_->isRunning() ? " — running" : ""), [this] { openLiveMonitor(); }},
             {"🎲  Generator", [this] { openGenerator(); }},
             {"📊  Dashboard", [this] { openStats(); }},
             {"🛡  Security audit", [this] { openAudit(); }},
@@ -1029,6 +1048,7 @@ void MainWindow::openCommandPalette() {
     items.append({"action", "stats", "Dashboard", "Vault statistics & health", "📊"});
     items.append({"action", "theme", "Choose theme", "Change the colour palette", "🎨"});
     items.append({"action", "import-browsers", "Import browser logins", "Chrome · Brave · Edge · Firefox", "🌐"});
+    items.append({"action", "live-monitor", "Live browser-login monitor", liveMonitor_ && liveMonitor_->isRunning() ? "Running" : "Off", "📡"});
     items.append({"action", "import", "Import from file", "JSON / CSV", "📥"});
     items.append({"action", "export", "Export items", "", "📤"});
     items.append({"action", "settings", "Settings", "", "⚙"});
@@ -1059,6 +1079,7 @@ void MainWindow::openCommandPalette() {
             else if (id == "stats") openStats();
             else if (id == "theme") pickTheme();
             else if (id == "import-browsers") importFromBrowsers();
+            else if (id == "live-monitor") openLiveMonitor();
             else if (id == "import") importItems();
             else if (id == "export") exportItems();
             else if (id == "settings") openSettings();
@@ -1117,6 +1138,53 @@ void MainWindow::importFromBrowsers() {
     QMessageBox::information(this, "Import", QString("Imported %1 login(s) from your browsers.").arg(n));
 }
 
+void MainWindow::updateLiveMonitorBadge() {
+    if (!liveMonitorBtn_ || !liveMonitor_) return;
+    const int n = liveMonitor_->unreviewedCount();
+    liveMonitorBtn_->setText(n > 0 ? QString("  Live (%1)").arg(n) : "  Live");
+    liveMonitorBtn_->setToolTip(liveMonitor_->isRunning()
+                                    ? QString("Live browser-login monitor — running, %1 unreviewed").arg(n)
+                                    : "Live browser-login monitor — off");
+}
+
+void MainWindow::openLiveMonitor() {
+    LiveMonitorDialog d(liveMonitor_, data_.settings.liveMonitorEnabled, this);
+    connect(&d, &LiveMonitorDialog::enabledChanged, this, [this](bool on) {
+        data_.settings.liveMonitorEnabled = on;
+        persist();
+        updateLiveMonitorBadge();
+    });
+    connect(&d, &LiveMonitorDialog::addToVaultRequested, this, [this](const bimport::Credential& c) {
+        addLiveCredentialToVault(c);
+        liveMonitor_->markAllReviewed();  // this item was just handled; keep the badge honest
+        updateLiveMonitorBadge();
+    });
+    d.exec();
+    updateLiveMonitorBadge();
+}
+
+void MainWindow::addLiveCredentialToVault(const bimport::Credential& c) {
+    // Skip an exact duplicate (same origin + username) rather than piling up
+    // repeat entries every time the monitor notices the same sign-in again.
+    for (const auto& e : data_.entries) {
+        if (e.trashed) continue;
+        if (e.url == c.origin && e.username.compare(c.username, Qt::CaseInsensitive) == 0) return;
+    }
+    vault::Entry e = vault::newEntry("login");
+    e.title = c.site.isEmpty() ? c.origin : c.site;
+    e.url = c.origin;
+    e.username = c.username;
+    e.password = c.password;
+    const QString method = bimport::methodLabel(c.method);
+    e.tags = QStringList{"live-capture", c.browser.toLower(), bimport::methodKey(c.method)};
+    e.notes = QString("Captured live from %1 · sign-in: %2").arg(c.browser, method);
+    e.customFields.append({"Sign-in", method + (c.provider.isEmpty() ? QString() : " (" + c.provider + ")"), false});
+    data_.entries.prepend(e);
+    persist();
+    rebuildSidebar();
+    rebuildList();
+}
+
 void MainWindow::exportItems() {
     QMessageBox box(this);
     box.setWindowTitle("Export items");
@@ -1158,12 +1226,16 @@ void MainWindow::openSettings() {
     connect(&d, &SettingsDialog::wipeRequested, this, &MainWindow::wipeVault);
     connect(&d, &SettingsDialog::openFolderRequested, this, &MainWindow::openVaultFolder);
     if (d.exec() == QDialog::Accepted) {
+        const bool wasEnabled = data_.settings.liveMonitorEnabled;
         data_.settings = d.result();
         kdfPreset_ = data_.settings.kdf;
         persist();
         applyTheme(data_.settings.theme);
         rebuildSidebar();
         rebuildList();
+        if (data_.settings.liveMonitorEnabled && !wasEnabled) liveMonitor_->start();
+        else if (!data_.settings.liveMonitorEnabled && wasEnabled) liveMonitor_->stop();
+        updateLiveMonitorBadge();
     } else {
         applyTheme(data_.settings.theme);
     }
@@ -1265,6 +1337,7 @@ void MainWindow::buildTray() {
     auto* menu = new QMenu(this);
     menu->addAction("Show", this, [this] { showNormal(); raise(); activateWindow(); });
     menu->addAction("Command palette", this, [this] { showNormal(); raise(); activateWindow(); openCommandPalette(); });
+    menu->addAction("Live browser-login monitor", this, [this] { showNormal(); raise(); activateWindow(); openLiveMonitor(); });
     menu->addAction("Lock now", this, &MainWindow::lock);
     menu->addSeparator();
     menu->addAction("Quit", this, [this] { quitting_ = true; qApp->quit(); });

@@ -94,6 +94,9 @@ private:
     QCheckBox* compact_ = nullptr;
     QCheckBox* badges_ = nullptr;
     QCheckBox* confirmDel_ = nullptr;
+    QCheckBox* liveEnabled_ = nullptr;
+    QCheckBox* liveNotify_ = nullptr;
+    QCheckBox* liveAutoSave_ = nullptr;
     QComboBox* theme_ = nullptr;
     QComboBox* kdf_ = nullptr;
     QComboBox* defType_ = nullptr;
