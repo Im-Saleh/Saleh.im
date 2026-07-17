@@ -226,10 +226,10 @@ export const projects: Project[] = [
     name: "Forge",
     title: { en: "Forge — Developer Toolbox", fa: "فورج — جعبه‌ابزار توسعه‌دهنده" },
     description: {
-      en: "A fast, private developer toolbox with 16 tools in one place — JSON formatter, Base64 / URL / HTML / JWT, hashing, UUID·ULID·Nano-ID generators, a colour studio with WCAG contrast, regex tester, cron explainer, timestamp & number-base converters, a line diff and a live Markdown preview. Everything runs locally in the browser — nothing is uploaded.",
-      fa: "یک جعبه‌ابزارِ سریع و خصوصیِ توسعه‌دهنده با ۱۶ ابزار در یک‌جا — فرمت‌کننده‌ی JSON، Base64/URL/HTML/JWT، هش، سازنده‌ی UUID·ULID·Nano-ID، استودیوی رنگ با کنتراستِ WCAG، تسترِ regex، توضیح‌دهنده‌ی cron، مبدل‌های زمان و مبنای عددی، دیفِ خطی و پیش‌نمایشِ زنده‌ی مارک‌داون. همه‌چیز به‌صورت محلی در مرورگر اجرا می‌شود — چیزی آپلود نمی‌شود.",
+      en: "A fast, private developer toolbox with 70+ tools in one place — JSON / CSV / TypeScript, Base64 / Base32 / URL / HTML / JWT, AES-256 encryption, hashing, UUID·ULID·password·mock-data generators, a colour studio with WCAG contrast, regex tester, cron explainer, CIDR / subnet calculator, cURL→fetch, timestamp / number-base / unit converters, CSS gradient·shadow·bezier generators, diff, markdown and much more. Everything runs locally in the browser — nothing is uploaded.",
+      fa: "یک جعبه‌ابزارِ سریع و خصوصیِ توسعه‌دهنده با بیش از ۷۰ ابزار در یک‌جا — JSON/CSV/TypeScript، Base64/Base32/URL/HTML/JWT، رمزنگاریِ AES-256، هش، سازنده‌ی UUID·ULID·رمز·دادهٔ آزمایشی، استودیوی رنگ با کنتراستِ WCAG، تسترِ regex، توضیح‌دهنده‌ی cron، محاسبه‌گرِ CIDR/زیرشبکه، cURL→fetch، مبدل‌های زمان/مبنا/واحد، سازنده‌های گرادیان·سایه·بزیهِ CSS، دیف، مارک‌داون و بسیار بیشتر. همه‌چیز به‌صورت محلی در مرورگر اجرا می‌شود.",
     },
-    tags: ["React", "TypeScript", "Web APIs", "DX", "Tools"],
+    tags: ["React", "TypeScript", "Web APIs", "70+ tools", "DX"],
     href: `${BASE_PATH}/forge/`,
     year: "2026",
     featured: true,

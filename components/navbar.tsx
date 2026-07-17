@@ -54,11 +54,14 @@ export function Navbar() {
 
           <div className="hidden items-center gap-1 lg:flex">
             {links.map((l) => (
-              <a key={l.href} href={l.href} className="group flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm text-[var(--fg-2)] transition-colors hover:text-[var(--fg)]">
-                <span className="mono text-[10px] opacity-50">{l.n}</span>
-                {l.label}
+              <a key={l.href} href={l.href} className="group flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm text-[var(--fg-2)] transition-all hover:-translate-y-0.5 hover:text-[var(--fg)]">
+                <span className="mono text-[10px] opacity-50 transition-colors group-hover:text-[var(--accent)] group-hover:opacity-100">{l.n}</span>
+                <span className="udl">{l.label}</span>
               </a>
             ))}
+            <a href="/forge" className="group ms-1 flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm text-[var(--fg-2)] transition-all hover:-translate-y-0.5 hover:border-[var(--accent)] hover:text-[var(--accent)]" style={{ borderColor: "var(--line-2)" }}>
+              ⚒ Forge
+            </a>
           </div>
 
           <div className="flex items-center gap-2">

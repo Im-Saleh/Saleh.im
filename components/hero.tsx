@@ -126,6 +126,7 @@ export function Hero() {
         <div className="absolute inset-0 dotfield" />
         <div className="aurora left-[8%] top-[14%] h-72 w-72" style={{ background: "var(--accent)", transform: "translate3d(var(--tx,0),var(--ty,0),0)" }} />
         <div className="aurora right-[6%] top-[30%] h-64 w-64" style={{ background: "var(--accent-2)", opacity: 0.28, animationDelay: "-6s" }} />
+        <div className="aurora left-[40%] top-[54%] h-52 w-52" style={{ background: "var(--accent)", opacity: 0.16, animationDelay: "-11s" }} />
       </div>
 
       <div className="wrap relative">
@@ -145,14 +146,14 @@ export function Hero() {
               {isFa ? (
                 <>
                   <span className="fa-accent block">صالح</span>
-                  <span className="fa-accent block accent-text">ثقفیانی</span>
+                  <span className="fa-accent gradient-text block">ثقفیانی</span>
                 </>
               ) : (
                 <>
                   <span className="block">Saleh</span>
                   <span className="block">
                     <span className="stroke-text">Sagha</span>
-                    <span className="display-italic accent-text">fiani</span>
+                    <span className="display-italic gradient-text">fiani</span>
                   </span>
                 </>
               )}
@@ -171,11 +172,15 @@ export function Hero() {
           <div className="flex flex-col justify-end gap-6 lg:col-span-4">
             <p className="max-w-sm text-[var(--fg-2)] sm:text-lg">{t.hero.bio}</p>
             <div className="flex flex-wrap gap-3">
-              <a href="#projects" className="btn btn-accent">
+              <a href="#projects" className="btn btn-accent halo">
                 {t.hero.seeWork}
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
                   <path d="M7 17 17 7M8 7h9v9" />
                 </svg>
+              </a>
+              <a href="/forge" className="btn btn-outline">
+                Forge
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M7 17 17 7M8 7h9v9" /></svg>
               </a>
               <a href="#contact" className="btn btn-outline">{t.hero.sayHello}</a>
             </div>
@@ -183,16 +188,17 @@ export function Hero() {
         </div>
 
         {/* stat rail */}
-        <div className="mt-14 grid grid-cols-2 gap-px overflow-hidden rounded-2xl border sm:grid-cols-4" style={{ borderColor: "var(--line)", background: "var(--line)" }}>
+        <div className="stagger mt-14 grid grid-cols-2 gap-px overflow-hidden rounded-2xl border sm:grid-cols-4" style={{ borderColor: "var(--line)", background: "var(--line)" }}>
           {[
             { v: `${years}+`, k: t.hero.stats.years },
-            { v: "20+", k: t.hero.stats.repos },
+            { v: "24+", k: t.hero.stats.repos },
             { v: "6", k: t.hero.stats.langs },
             { v: "∞", k: t.hero.stats.curiosity },
           ].map((s) => (
-            <div key={s.k} className="bg-[var(--bg)] p-5">
-              <div className="count font-display text-4xl font-semibold sm:text-5xl">{s.v}</div>
-              <div className="label mt-2">{s.k}</div>
+            <div key={s.k} className="group relative overflow-hidden bg-[var(--bg)] p-5 transition-colors duration-300 hover:bg-[var(--bg-2)]">
+              <span className="absolute inset-x-0 bottom-0 h-0.5 origin-left scale-x-0 transition-transform duration-500 group-hover:scale-x-100" style={{ background: "linear-gradient(90deg, var(--accent), var(--accent-2))" }} aria-hidden />
+              <div className="count font-display text-4xl font-semibold transition-transform duration-300 group-hover:-translate-y-0.5 sm:text-5xl">{s.v}</div>
+              <div className="label mt-2 transition-colors group-hover:text-[var(--accent)]">{s.k}</div>
             </div>
           ))}
         </div>

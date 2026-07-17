@@ -816,6 +816,7 @@ export default function MessengerPage() {
       <div className="relative flex min-h-[100dvh] items-center justify-center overflow-hidden px-5">
         <div className="pointer-events-none absolute inset-0 dotfield" aria-hidden />
         <div className="aurora left-[14%] top-[10%] h-72 w-72" style={{ background: "var(--accent)" }} aria-hidden />
+        <div className="aurora right-[10%] bottom-[12%] h-64 w-64" style={{ background: "var(--accent-2)", opacity: 0.2, animationDelay: "-8s" }} aria-hidden />
         <div className="absolute inset-x-0 top-0 z-20 flex items-center justify-between p-4">
           <Link href="/" className="mono rounded-full border px-3 py-1.5 text-xs text-[var(--fg-2)] backdrop-blur hover:text-[var(--fg)]" style={{ borderColor: "var(--line-2)" }}>← saleh.im</Link>
           <div className="flex items-center gap-2">
@@ -823,10 +824,11 @@ export default function MessengerPage() {
             <LangToggle />
           </div>
         </div>
-        <div className="panel elev relative w-full max-w-md p-8">
-          <div className="mb-6 flex items-center gap-3">
-            <span className="grid h-12 w-12 place-items-center rounded-2xl text-2xl" style={{ background: "var(--accent)", color: "var(--on-accent)" }}>◆</span>
-            <div><h1 className="display text-3xl">{T.title}</h1><p className="text-xs text-[var(--fg-2)]">{T.tag}</p></div>
+        <div className="panel elev shine glow-border relative w-full max-w-md overflow-hidden p-8">
+          <div className="conic-sheen" aria-hidden style={{ opacity: 0.12 }} />
+          <div className="relative mb-6 flex items-center gap-3">
+            <span className="pulse-ring relative grid h-12 w-12 place-items-center rounded-2xl text-2xl" style={{ background: "linear-gradient(135deg, var(--accent), var(--accent-2))", color: "var(--on-accent)", boxShadow: "0 10px 30px -8px var(--glow)" }}>◆</span>
+            <div><h1 className="display gradient-text text-3xl">{T.title}</h1><p className="text-xs text-[var(--fg-2)]">{T.tag}</p></div>
           </div>
           <form onSubmit={signIn} className="grid gap-4" autoComplete="off">
             <label className="grid gap-2 text-sm text-[var(--fg-2)]">{T.u}
@@ -844,10 +846,25 @@ export default function MessengerPage() {
             <button type="submit" className="btn btn-accent mt-1">{T.go}</button>
             <p className="text-xs leading-relaxed text-[var(--fg-2)]">{T.handleNote}</p>
           </form>
-          <div className="mt-6 flex flex-wrap gap-2 border-t pt-5" style={{ borderColor: "var(--line)" }}>
-            {["ECDH P-256", "AES-256-GCM ×2", "HMAC-SHA256", "WebRTC calls"].map((c) => (
-              <span key={c} className="mono rounded-lg border px-2.5 py-1 text-[10px] force-ltr" style={{ borderColor: "var(--line-2)", color: "var(--accent)" }}>{c}</span>
-            ))}
+          <div className="relative mt-6 border-t pt-5" style={{ borderColor: "var(--line)" }}>
+            <div className="stagger grid grid-cols-2 gap-2">
+              {[
+                { ic: "shield", en: "End-to-end encrypted", fa: "رمزنگاریِ سرتاسری" },
+                { ic: "screen", en: "No servers, peer-to-peer", fa: "بدون سرور، همتا‌به‌همتا" },
+                { ic: "phone", en: "Voice, video & screen", fa: "صوت، ویدیو و صفحه" },
+                { ic: "mic", en: "No account, no history", fa: "بدون حساب و تاریخچه" },
+              ].map((f) => (
+                <div key={f.ic} className="flex items-center gap-2.5 rounded-xl border p-2.5" style={{ borderColor: "var(--line)", background: "var(--bg-3)" }}>
+                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg" style={{ background: "color-mix(in srgb, var(--accent) 14%, transparent)", color: "var(--accent)" }}><Icon name={f.ic} size={15} /></span>
+                  <span className="text-[11px] leading-tight text-[var(--fg-2)]">{fa ? f.fa : f.en}</span>
+                </div>
+              ))}
+            </div>
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {["ECDH P-256", "AES-256-GCM ×2", "HMAC-SHA256", "WebRTC"].map((c) => (
+                <span key={c} className="mono rounded-lg border px-2 py-0.5 text-[10px] force-ltr" style={{ borderColor: "var(--line-2)", color: "var(--accent)" }}>{c}</span>
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -868,9 +885,9 @@ export default function MessengerPage() {
           </span>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={() => setSoundOn((s) => !s)} title={T.sound} className="grid h-9 w-9 place-items-center rounded-full border" style={{ borderColor: "var(--line-2)", opacity: soundOn ? 1 : 0.5 }}>{soundOn ? "🔔" : "🔕"}</button>
-          <button onClick={requestNotify} title={T.notif} className="hidden h-9 w-9 place-items-center rounded-full border sm:grid" style={{ borderColor: "var(--line-2)", opacity: notify ? 1 : 0.5 }}>{notify ? "📨" : "✉️"}</button>
-          <button onClick={toggleMode} className="grid h-9 w-9 place-items-center rounded-full border" style={{ borderColor: "var(--line-2)" }}>◑</button>
+          <button onClick={() => setSoundOn((s) => !s)} title={T.sound} className="grid h-9 w-9 place-items-center rounded-full border transition-all hover:scale-110 hover:text-[var(--accent)]" style={{ borderColor: "var(--line-2)", opacity: soundOn ? 1 : 0.5 }}><Icon name={soundOn ? "bell" : "bellOff"} size={16} /></button>
+          <button onClick={requestNotify} title={T.notif} className="hidden h-9 w-9 place-items-center rounded-full border transition-all hover:scale-110 hover:text-[var(--accent)] sm:grid" style={{ borderColor: "var(--line-2)", opacity: notify ? 1 : 0.5 }}><Icon name="bell" size={16} /></button>
+          <button onClick={toggleMode} className="grid h-9 w-9 place-items-center rounded-full border transition-all hover:scale-110 hover:rotate-45 hover:text-[var(--accent)]" style={{ borderColor: "var(--line-2)" }}><Icon name="moon" size={16} /></button>
           <LangToggle />
           <button onClick={signOut} className="btn btn-outline h-9 px-4 py-0 text-sm">{T.signout}</button>
         </div>
@@ -953,12 +970,12 @@ export default function MessengerPage() {
                   </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-1.5">
-                  <button onClick={() => startCall("audio")} disabled={!curReady} className="grid h-9 w-9 place-items-center rounded-full border disabled:opacity-40" style={{ borderColor: "var(--line-2)" }} title={T.voiceCall}>📞</button>
-                  <button onClick={() => startCall("video")} disabled={!curReady} className="grid h-9 w-9 place-items-center rounded-full border disabled:opacity-40" style={{ borderColor: "var(--line-2)" }} title={T.videoCall}>🎥</button>
-                  <button onClick={() => startCall("screen")} disabled={!curReady} className="hidden h-9 w-9 place-items-center rounded-full border disabled:opacity-40 sm:grid" style={{ borderColor: "var(--line-2)" }} title={T.screen}>🖥️</button>
-                  <button onClick={() => { setSearchOpen((s) => !s); setQuery(""); }} className="grid h-9 w-9 place-items-center rounded-full border" style={{ borderColor: "var(--line-2)" }} title="search">🔍</button>
-                  {curFp && <button onClick={() => setShowSafety((s) => !s)} className="grid h-9 w-9 place-items-center rounded-full border" style={{ borderColor: curVerified ? "var(--accent)" : "var(--line-2)" }} title={T.safety}>🛡</button>}
-                  <button onClick={clearConvo} className="hidden h-9 w-9 place-items-center rounded-full border sm:grid" style={{ borderColor: "var(--line-2)" }} title={T.clear}>🗑</button>
+                  <button onClick={() => startCall("audio")} disabled={!curReady} className="grid h-9 w-9 place-items-center rounded-full border transition-all hover:scale-110 hover:border-[var(--accent)] hover:text-[var(--accent)] disabled:opacity-40" style={{ borderColor: "var(--line-2)" }} title={T.voiceCall}><Icon name="phone" size={16} /></button>
+                  <button onClick={() => startCall("video")} disabled={!curReady} className="grid h-9 w-9 place-items-center rounded-full border transition-all hover:scale-110 hover:border-[var(--accent)] hover:text-[var(--accent)] disabled:opacity-40" style={{ borderColor: "var(--line-2)" }} title={T.videoCall}><Icon name="video" size={16} /></button>
+                  <button onClick={() => startCall("screen")} disabled={!curReady} className="hidden h-9 w-9 place-items-center rounded-full border transition-all hover:scale-110 hover:border-[var(--accent)] hover:text-[var(--accent)] disabled:opacity-40 sm:grid" style={{ borderColor: "var(--line-2)" }} title={T.screen}><Icon name="screen" size={16} /></button>
+                  <button onClick={() => { setSearchOpen((s) => !s); setQuery(""); }} className="grid h-9 w-9 place-items-center rounded-full border transition-all hover:scale-110 hover:border-[var(--accent)] hover:text-[var(--accent)]" style={{ borderColor: "var(--line-2)" }} title="search"><Icon name="search" size={16} /></button>
+                  {curFp && <button onClick={() => setShowSafety((s) => !s)} className="grid h-9 w-9 place-items-center rounded-full border transition-all hover:scale-110 hover:text-[var(--accent)]" style={{ borderColor: curVerified ? "var(--accent)" : "var(--line-2)", color: curVerified ? "var(--accent)" : undefined }} title={T.safety}><Icon name="shield" size={16} /></button>}
+                  <button onClick={clearConvo} className="hidden h-9 w-9 place-items-center rounded-full border transition-all hover:scale-110 hover:border-[#ff6a6a] hover:text-[#ff6a6a] sm:grid" style={{ borderColor: "var(--line-2)" }} title={T.clear}><Icon name="trash" size={16} /></button>
                 </div>
               </div>
 
@@ -1000,9 +1017,9 @@ export default function MessengerPage() {
                   return (
                     <div key={m.id}>
                       {showDay && <DayDivider label={dayLabel(m.ts)} />}
-                      <div className={`group flex items-end gap-1.5 ${m.mine ? "flex-row-reverse" : ""}`}>
-                        <div id={`msg-${m.id}`} className="relative max-w-[80%] transition-shadow duration-300" style={highlightId === m.id ? { boxShadow: "0 0 0 2px var(--accent)", borderRadius: 18 } : undefined}>
-                          <div className="rounded-2xl px-3.5 py-2 text-[14.5px] leading-relaxed shadow-sm" style={m.mine ? { background: "var(--accent)", color: "var(--on-accent)", borderEndEndRadius: 5 } : { background: "var(--bg-3)", borderEndStartRadius: 5 }}>
+                      <div className={`msg-row group flex items-end gap-1.5 ${m.mine ? "flex-row-reverse" : ""}`}>
+                        <div id={`msg-${m.id}`} className="relative max-w-[80%] transition-all duration-300 hover:-translate-y-0.5" style={highlightId === m.id ? { boxShadow: "0 0 0 2px var(--accent)", borderRadius: 18 } : undefined}>
+                          <div className="msg-bubble rounded-2xl px-3.5 py-2 text-[14.5px] leading-relaxed" style={m.mine ? { background: "linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 78%, var(--accent-2)))", color: "var(--on-accent)", borderEndEndRadius: 5, boxShadow: "0 6px 18px -10px var(--glow)" } : { background: "var(--bg-3)", borderEndStartRadius: 5, boxShadow: "0 4px 14px -10px var(--shadow)" }}>
                             {m.reply && <button onClick={() => m.reply && jumpTo(m.reply.id)} className="mb-1.5 block w-full rounded-lg border-s-2 px-2 py-1 text-start text-xs opacity-80 transition-opacity hover:opacity-100" style={{ borderColor: m.mine ? "rgba(0,0,0,0.35)" : "var(--accent)", background: m.mine ? "rgba(0,0,0,0.08)" : "var(--bg-2)" }}>{m.reply.preview}</button>}
                             {m.kind === "image" ? (
                               m.dataUrl ? <img src={m.dataUrl} alt="" className="max-h-64 rounded-lg" /> : <div className="grid h-32 w-48 place-items-center rounded-lg" style={{ background: "rgba(0,0,0,0.1)" }}>{m.progress ?? 0}%</div>
@@ -1040,11 +1057,11 @@ export default function MessengerPage() {
                           )}
                         </div>
                         <div className="flex shrink-0 flex-wrap gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
-                          <button onClick={() => setReactFor(reactFor === m.id ? null : m.id)} className="grid h-6 w-6 place-items-center rounded-full text-xs" style={{ background: "var(--bg-2)", border: "1px solid var(--line)" }} title={T.react}>☺</button>
-                          <button onClick={() => setReplyTo(m)} className="grid h-6 w-6 place-items-center rounded-full text-xs" style={{ background: "var(--bg-2)", border: "1px solid var(--line)" }} title={T.reply}>↩</button>
-                          {m.kind === "text" && <button onClick={() => copyMsgText(m)} className="grid h-6 w-6 place-items-center rounded-full text-[10px]" style={{ background: "var(--bg-2)", border: "1px solid var(--line)" }} title={T.copyText}>{copied === "m-" + m.id ? "✓" : "⧉"}</button>}
-                          {m.mine && m.kind === "text" && <button onClick={() => startEdit(m)} className="grid h-6 w-6 place-items-center rounded-full text-[10px]" style={{ background: "var(--bg-2)", border: "1px solid var(--line)" }} title={T.edit}>✎</button>}
-                          <button onClick={() => deleteMsg(m)} className="grid h-6 w-6 place-items-center rounded-full text-xs" style={{ background: "var(--bg-2)", border: "1px solid var(--line)" }} title={T.del}>✕</button>
+                          <button onClick={() => setReactFor(reactFor === m.id ? null : m.id)} className="grid h-6 w-6 place-items-center rounded-full transition-transform hover:scale-110 hover:text-[var(--accent)]" style={{ background: "var(--bg-2)", border: "1px solid var(--line)" }} title={T.react}><Icon name="smile" size={12} /></button>
+                          <button onClick={() => setReplyTo(m)} className="grid h-6 w-6 place-items-center rounded-full transition-transform hover:scale-110 hover:text-[var(--accent)]" style={{ background: "var(--bg-2)", border: "1px solid var(--line)" }} title={T.reply}><Icon name="reply" size={12} /></button>
+                          {m.kind === "text" && <button onClick={() => copyMsgText(m)} className="grid h-6 w-6 place-items-center rounded-full transition-transform hover:scale-110 hover:text-[var(--accent)]" style={{ background: "var(--bg-2)", border: "1px solid var(--line)" }} title={T.copyText}><Icon name={copied === "m-" + m.id ? "check" : "copy"} size={12} /></button>}
+                          {m.mine && m.kind === "text" && <button onClick={() => startEdit(m)} className="grid h-6 w-6 place-items-center rounded-full transition-transform hover:scale-110 hover:text-[var(--accent)]" style={{ background: "var(--bg-2)", border: "1px solid var(--line)" }} title={T.edit}><Icon name="edit" size={12} /></button>}
+                          <button onClick={() => deleteMsg(m)} className="grid h-6 w-6 place-items-center rounded-full transition-transform hover:scale-110 hover:text-[#ff6a6a]" style={{ background: "var(--bg-2)", border: "1px solid var(--line)" }} title={T.del}><Icon name="x" size={12} /></button>
                         </div>
                       </div>
                     </div>
@@ -1055,7 +1072,7 @@ export default function MessengerPage() {
                 )}
               </div>
 
-              {!atBottom && <button onClick={() => { setAtBottom(true); scrollToBottom(true); }} className="absolute bottom-24 z-10 grid h-10 w-10 place-items-center rounded-full border shadow-lg" style={{ insetInlineEnd: "1.25rem", background: "var(--bg-2)", borderColor: "var(--line-2)" }}>↓</button>}
+              {!atBottom && <button onClick={() => { setAtBottom(true); scrollToBottom(true); }} className="absolute bottom-24 z-10 grid h-10 w-10 animate-[msgIn_.3s_ease] place-items-center rounded-full border shadow-lg transition-transform hover:scale-110 hover:border-[var(--accent)]" style={{ insetInlineEnd: "1.25rem", background: "var(--bg-2)", borderColor: "var(--line-2)" }}><Icon name="down" size={18} /></button>}
 
               {/* composer */}
               <div className="border-t p-3" style={{ borderColor: "var(--line)", background: "var(--bg-2)" }}>
@@ -1091,8 +1108,8 @@ export default function MessengerPage() {
                         </div>
                       </>
                     )}
-                    <button onClick={() => fileRef.current?.click()} disabled={attaching} className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border text-lg disabled:opacity-50" style={{ borderColor: "var(--line-2)" }} title={T.file}>{attaching ? "…" : "📎"}</button>
-                    <button onClick={() => setShowEmoji((s) => !s)} className="hidden h-11 w-11 shrink-0 place-items-center rounded-xl border text-lg sm:grid" style={{ borderColor: "var(--line-2)" }} title={T.emoji}>😊</button>
+                    <button onClick={() => fileRef.current?.click()} disabled={attaching} className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border transition-all hover:scale-105 hover:border-[var(--accent)] hover:text-[var(--accent)] disabled:opacity-50" style={{ borderColor: "var(--line-2)" }} title={T.file}>{attaching ? <span className="animate-pulse">…</span> : <Icon name="clip" size={18} />}</button>
+                    <button onClick={() => setShowEmoji((s) => !s)} className="hidden h-11 w-11 shrink-0 place-items-center rounded-xl border transition-all hover:scale-105 hover:border-[var(--accent)] hover:text-[var(--accent)] sm:grid" style={{ borderColor: "var(--line-2)", color: showEmoji ? "var(--accent)" : undefined }} title={T.emoji}><Icon name="smile" size={18} /></button>
                     <input ref={fileRef} type="file" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) (f.type.startsWith("image/") ? sendImage(f) : sendFile(f)); e.currentTarget.value = ""; }} />
                     <textarea ref={textareaRef} value={input} onChange={(e) => { setInput(e.target.value); if (!editing) onType(); }} onPaste={(e) => { const f = e.clipboardData?.files?.[0]; if (f && f.type.startsWith("image/")) { e.preventDefault(); sendImage(f); } }} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendText(); } else if (e.key === "Escape" && editing) cancelEdit(); }} rows={1} placeholder={editing ? `${T.editing}…` : T.typeMsg} disabled={!curReady} className="max-h-32 min-h-[44px] flex-1 resize-none rounded-xl border px-4 py-2.5 text-[var(--fg)] outline-none disabled:opacity-50" style={{ background: "var(--bg-3)", borderColor: editing ? "var(--accent)" : "var(--line)" }} />
                     {input.trim() ? (
@@ -1104,7 +1121,7 @@ export default function MessengerPage() {
                         )}
                       </button>
                     ) : (
-                      <button onClick={startRec} disabled={!curReady} className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border text-lg disabled:opacity-40" style={{ borderColor: "var(--line-2)" }} title={T.holdRec}>🎙️</button>
+                      <button onClick={startRec} disabled={!curReady} className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border transition-all hover:scale-105 hover:border-[var(--accent)] hover:text-[var(--accent)] disabled:opacity-40" style={{ borderColor: "var(--line-2)" }} title={T.holdRec}><Icon name="mic" size={18} /></button>
                     )}
                   </div>
                 )}
@@ -1158,6 +1175,10 @@ export default function MessengerPage() {
       <style jsx global>{`
         @keyframes td { 0%,60%,100% { transform: translateY(0); opacity: .4; } 30% { transform: translateY(-4px); opacity: 1; } }
         @keyframes vbar { from { transform: scaleY(.5); } to { transform: scaleY(1); } }
+        @keyframes msgIn { from { opacity: 0; transform: translateY(10px) scale(.97); } to { opacity: 1; transform: none; } }
+        .msg-row { animation: msgIn .32s cubic-bezier(.22,1,.36,1) both; }
+        .msg-bubble { transition: box-shadow .3s ease; }
+        @media (prefers-reduced-motion: reduce) { .msg-row { animation: none; } }
       `}</style>
     </div>
   );
@@ -1170,5 +1191,41 @@ function DayDivider({ label }: { label: string }) {
       <span className="mono rounded-full border px-2.5 py-0.5 text-[10px] text-[var(--fg-2)]" style={{ borderColor: "var(--line)" }}>{label}</span>
       <span className="h-px flex-1" style={{ background: "var(--line)" }} />
     </div>
+  );
+}
+
+/* Crisp, consistent line-icon set (replaces emoji chrome for a pro feel). */
+const ICON_PATHS: Record<string, string> = {
+  phone: "M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.9.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z",
+  video: "M23 7l-7 5 7 5V7zM1 5h15v14H1z",
+  screen: "M2 3h20v14H2zM8 21h8M12 17v4",
+  search: "M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM21 21l-4.35-4.35",
+  shield: "M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z",
+  trash: "M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6",
+  clip: "M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48",
+  mic: "M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3zM19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8",
+  smile: "M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01",
+  bell: "M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0",
+  bellOff: "M13.73 21a2 2 0 0 1-3.46 0M18.63 13A17.9 17.9 0 0 1 18 8M6.26 6.26A5.86 5.86 0 0 0 6 8c0 7-3 9-3 9h14M18 8a6 6 0 0 0-9.33-5M1 1l22 22",
+  sun: "M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10zM12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42",
+  moon: "M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z",
+  back: "M19 12H5M12 19l-7-7 7-7",
+  close: "M18 6 6 18M6 6l12 12",
+  reply: "M9 17l-6-5 6-5M3 12h10a6 6 0 0 1 6 6v2",
+  copy: "M9 9h11a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-9a2 2 0 0 1-2-2v-2M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1",
+  edit: "M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z",
+  x: "M18 6 6 18M6 6l12 12",
+  down: "M12 5v14M19 12l-7 7-7-7",
+  send: "m22 2-7 20-4-9-9-4Z M22 2 11 13",
+  check: "M20 6 9 17l-5-5",
+};
+function Icon({ name, size = 18, stroke = 2 }: { name: string; size?: number; stroke?: number }) {
+  const d = ICON_PATHS[name] || "";
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      {d.split(" M").map((seg, i) => (
+        <path key={i} d={(i === 0 ? seg : "M" + seg)} />
+      ))}
+    </svg>
   );
 }

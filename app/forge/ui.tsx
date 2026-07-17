@@ -9,10 +9,13 @@ export function ToolShell({ title, subtitle, children }: { title: string; subtit
   return (
     <div className="tab-anim">
       <div className="mb-5">
-        <h2 className="display text-2xl sm:text-3xl">{title}</h2>
-        <p className="mt-1 text-sm text-[var(--fg-2)]">{subtitle}</p>
+        <div className="mb-2 flex items-center gap-2.5">
+          <span className="h-6 w-1 rounded-full" style={{ background: "linear-gradient(var(--accent), var(--accent-2))" }} />
+          <h2 className="display gradient-text text-2xl sm:text-3xl">{title}</h2>
+        </div>
+        <p className="text-sm text-[var(--fg-2)]">{subtitle}</p>
       </div>
-      <div className="grid gap-4">{children}</div>
+      <div className="stagger grid gap-4">{children}</div>
     </div>
   );
 }

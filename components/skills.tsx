@@ -26,7 +26,7 @@ export function Skills() {
               <h2 className="display mt-3 text-5xl sm:text-6xl">
                 {t.skills.heading1}
                 <br />
-                <span className="display-italic accent-text">{t.skills.heading2}</span>
+                <span className="display-italic gradient-text">{t.skills.heading2}</span>
               </h2>
             </div>
             <p className="max-w-xs text-[var(--fg-2)]">{t.skills.sub}</p>
@@ -67,7 +67,7 @@ export function Skills() {
             const open = openSkill === s.name.en;
             return (
               <Reveal key={s.name.en} delay={i * 60}>
-                <div className={`panel sheen glow-border relative overflow-hidden ${open ? "elev" : "lift"}`} style={{ borderColor: open ? "var(--line-2)" : "var(--line)" }}>
+                <div className={`panel sheen shine glow-border relative overflow-hidden ${open ? "elev" : "lift"}`} style={{ borderColor: open ? "var(--line-2)" : "var(--line)" }}>
                   <span className="absolute inset-y-3 start-0 w-[3px] rounded-full transition-transform duration-500" style={{ background: "var(--accent)", transform: open ? "scaleY(1)" : "scaleY(0)", transformOrigin: "center", boxShadow: "0 0 12px var(--glow)" }} aria-hidden />
                   <button onClick={() => setOpenSkill(open ? "" : s.name.en)} className="flex w-full items-center gap-4 p-5 text-start sm:p-6">
                     <span className="mono text-xs text-[var(--fg-2)]">{faDigit(i + 1).padStart(2, lang === "fa" ? "۰" : "0")}</span>

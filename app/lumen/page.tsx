@@ -200,8 +200,29 @@ export default function LumenPage() {
   const [convAmt, setConvAmt] = useState("1");
   const [convCoin, setConvCoin] = useState("bitcoin");
   const [convDir, setConvDir] = useState<"toFiat" | "toCoin">("toFiat");
+  // ---- new feature state (portfolio, alerts, DCA, compare, F&G history, density) ----
+  const [portfolio, setPortfolio] = useState<Record<string, number>>({});
+  const [showPortfolio, setShowPortfolio] = useState(false);
+  const [pfCoin, setPfCoin] = useState("bitcoin");
+  const [pfAmt, setPfAmt] = useState("");
+  const [alerts, setAlerts] = useState<{ id: string; coin: string; target: number; dir: "above" | "below"; hit: boolean }[]>([]);
+  const [alCoin, setAlCoin] = useState("bitcoin");
+  const [alPrice, setAlPrice] = useState("");
+  const [alDir, setAlDir] = useState<"above" | "below">("above");
+  const [cmpA, setCmpA] = useState("bitcoin");
+  const [cmpB, setCmpB] = useState("ethereum");
+  const [dcaAmt, setDcaAmt] = useState("100");
+  const [dcaCount, setDcaCount] = useState("52");
+  const [dcaCoin, setDcaCoin] = useState("bitcoin");
+  const [fgHistory, setFgHistory] = useState<number[]>([]);
+  const [density, setDensity] = useState<"comfy" | "compact">("comfy");
   const liveRef = useRef(true);
   useEffect(() => { liveRef.current = live; }, [live]);
+
+  // persistence for portfolio + alerts
+  useEffect(() => { try { const p = localStorage.getItem("lumen:portfolio"); if (p) setPortfolio(JSON.parse(p)); const a = localStorage.getItem("lumen:alerts"); if (a) setAlerts(JSON.parse(a)); const f = localStorage.getItem("lumen:fg"); if (f) setFgHistory(JSON.parse(f)); } catch {} }, []);
+  const persistPortfolio = (p: Record<string, number>) => { setPortfolio(p); try { localStorage.setItem("lumen:portfolio", JSON.stringify(p)); } catch {} };
+  const persistAlerts = (a: typeof alerts) => { setAlerts(a); try { localStorage.setItem("lumen:alerts", JSON.stringify(a)); } catch {} };
 
   useEffect(() => {
     let raf = 0;
@@ -284,6 +305,71 @@ export default function LumenPage() {
 
   const sel = coins.find((c) => c.id === selected) || coins[0];
   const sentiment = useMemo(() => { const avg = coins.reduce((s, c) => s + c.change24h, 0) / (coins.length || 1); return Math.max(0, Math.min(100, Math.round(50 + avg * 6))); }, [coins]);
+
+  /* ---- new-feature derived data ---- */
+  const portfolioRows = useMemo(
+    () => Object.entries(portfolio)
+      .map(([id, amt]) => { const c = coins.find((x) => x.id === id); return c ? { c, amt, value: amt * c.price, change: c.change24h } : null; })
+      .filter((x): x is { c: Coin; amt: number; value: number; change: number } => !!x)
+      .sort((a, b) => b.value - a.value),
+    [portfolio, coins]
+  );
+  const portfolioValue = useMemo(() => portfolioRows.reduce((s, r) => s + r.value, 0), [portfolioRows]);
+  const portfolioChange = useMemo(() => (portfolioValue ? portfolioRows.reduce((s, r) => s + r.value * (r.change / 100), 0) / portfolioValue * 100 : 0), [portfolioRows, portfolioValue]);
+  const gainers = useMemo(() => [...coins].sort((a, b) => b.change24h - a.change24h).slice(0, 3), [coins]);
+  const losers = useMemo(() => [...coins].sort((a, b) => a.change24h - b.change24h).slice(0, 3), [coins]);
+  const treemap = useMemo(() => { const top = [...coins].sort((a, b) => b.marketCap - a.marketCap).slice(0, 12); const tot = top.reduce((s, c) => s + c.marketCap, 0) || 1; return top.map((c) => ({ c, pct: (c.marketCap / tot) * 100 })); }, [coins]);
+  const athList = useMemo(() => coins.filter((c) => c.ath && c.ath > 0).map((c) => ({ c, dist: ((c.price - (c.ath || c.price)) / (c.ath || c.price)) * 100 })).sort((a, b) => a.dist - b.dist).slice(0, 6), [coins]);
+  const volCapRatio = glob.cap ? (glob.vol / glob.cap) * 100 : 0;
+  const cmpAcoin = coins.find((c) => c.id === cmpA);
+  const cmpBcoin = coins.find((c) => c.id === cmpB);
+  const norm = (arr: number[]) => { if (arr.length < 2) return arr; const base = arr[0] || 1; return arr.map((v) => (v / base - 1) * 100); };
+  const dcaResult = useMemo(() => {
+    const per = parseFloat(dcaAmt) || 0, n = Math.max(1, Math.min(520, parseInt(dcaCount) || 1));
+    const c = coins.find((x) => x.id === dcaCoin);
+    const invested = per * n;
+    // simulate buys along the coin's 7d spark as a price path proxy
+    const path = c?.spark && c.spark.length > 1 ? c.spark : [c?.price || 1];
+    let units = 0;
+    for (let i = 0; i < n; i++) { const price = path[Math.floor((i / n) * (path.length - 1))] || (c?.price || 1); units += per / price; }
+    const value = units * (c?.price || 0);
+    return { invested, value, units, roi: invested ? ((value - invested) / invested) * 100 : 0, sym: c?.symbol?.toUpperCase() || "" };
+  }, [dcaAmt, dcaCount, dcaCoin, coins]);
+
+  // record a Fear & Greed history point whenever data refreshes
+  useEffect(() => { if (updated) setFgHistory((h) => { const n = [...h, sentiment].slice(-72); try { localStorage.setItem("lumen:fg", JSON.stringify(n)); } catch {} return n; }); /* eslint-disable-next-line */ }, [updated]);
+  // evaluate price alerts on every data change
+  useEffect(() => {
+    if (!alerts.some((a) => !a.hit)) return;
+    let changed = false;
+    const next = alerts.map((a) => {
+      if (a.hit) return a;
+      const c = coins.find((x) => x.id === a.coin);
+      if (!c) return a;
+      const met = a.dir === "above" ? c.price >= a.target : c.price <= a.target;
+      if (met) {
+        changed = true;
+        if (typeof Notification !== "undefined" && Notification.permission === "granted") { try { new Notification("Lumen alert", { body: `${c.name} is ${a.dir} ${money(a.target)} (now ${money(c.price)})` }); } catch {} }
+        return { ...a, hit: true };
+      }
+      return a;
+    });
+    if (changed) persistAlerts(next);
+    // eslint-disable-next-line
+  }, [coins]);
+
+  const addHolding = () => { const amt = parseFloat(pfAmt); if (!amt || amt <= 0) return; persistPortfolio({ ...portfolio, [pfCoin]: (portfolio[pfCoin] || 0) + amt }); setPfAmt(""); };
+  const removeHolding = (id: string) => { const n = { ...portfolio }; delete n[id]; persistPortfolio(n); };
+  const addAlert = () => { const t = parseFloat(alPrice); if (!t || t <= 0) return; if (typeof Notification !== "undefined" && Notification.permission === "default") Notification.requestPermission(); persistAlerts([...alerts, { id: crypto.randomUUID(), coin: alCoin, target: t, dir: alDir, hit: false }]); setAlPrice(""); };
+  const removeAlert = (id: string) => persistAlerts(alerts.filter((a) => a.id !== id));
+  const exportCsv = () => {
+    const rows = [["rank", "name", "symbol", "price", "change24h", "marketCap", "volume"], ...coins.map((c) => [c.rank ?? "", c.name, c.symbol.toUpperCase(), c.price, c.change24h, c.marketCap, c.volume])];
+    const csv = rows.map((r) => r.join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url; a.download = `lumen-markets-${cur}.csv`; a.click();
+    URL.revokeObjectURL(url);
+  };
 
   /* ---- analytics ---- */
   const breadth: Breadth = useMemo(() => marketBreadth(coins.map((c) => c.change24h)), [coins]);
@@ -402,6 +488,174 @@ export default function LumenPage() {
             </div>
           </div>
         </div>
+
+        {/* ===== NEW: portfolio + alerts + quick actions ===== */}
+        <Reveal>
+          <div className="mt-4 grid gap-4 lg:grid-cols-2">
+            {/* portfolio tracker */}
+            <div className="panel elev p-5">
+              <div className="mb-3 flex items-center justify-between">
+                <p className="label">💼 {fa ? "پرتفوی" : "Portfolio"}</p>
+                <button onClick={() => setShowPortfolio(true)} className="btn btn-outline px-3 py-1.5 text-xs">{fa ? "مدیریت" : "Manage"}</button>
+              </div>
+              {portfolioRows.length === 0 ? (
+                <p className="py-4 text-center text-sm text-[var(--fg-2)]">{fa ? "دارایی اضافه کن تا ارزشِ زنده را ببینی." : "Add holdings to track live value."}</p>
+              ) : (
+                <>
+                  <div className="flex items-end justify-between">
+                    <p className="font-display text-3xl force-ltr"><Counter value={portfolioValue} format={money} /></p>
+                    <span className="mono text-sm" style={{ color: portfolioChange >= 0 ? "#22c55e" : "#ef4444" }}>{pct(portfolioChange)}</span>
+                  </div>
+                  <div className="mt-3 space-y-1.5">
+                    {portfolioRows.map((r) => (
+                      <div key={r.c.id} className="flex items-center justify-between gap-2 text-sm">
+                        <span className="inline-flex items-center gap-2">{r.c.image && <img src={r.c.image} alt="" className="h-4 w-4 rounded-full" />}<b className="uppercase force-ltr">{r.c.symbol}</b><span className="text-[var(--fg-2)] force-ltr">{r.amt}</span></span>
+                        <span className="mono force-ltr">{money(r.value)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+            {/* price alerts */}
+            <div className="panel elev p-5">
+              <p className="label mb-3">🔔 {fa ? "هشدارِ قیمت" : "Price alerts"}</p>
+              <div className="flex flex-wrap items-end gap-2">
+                <select value={alCoin} onChange={(e) => setAlCoin(e.target.value)} className="flex-1 rounded-xl border bg-[var(--bg-3)] px-2.5 py-2 text-sm outline-none" style={{ borderColor: "var(--line-2)" }}>{coins.slice(0, 15).map((c) => <option key={c.id} value={c.id} style={{ background: "var(--bg-2)" }}>{c.name}</option>)}</select>
+                <select value={alDir} onChange={(e) => setAlDir(e.target.value as "above" | "below")} className="rounded-xl border bg-[var(--bg-3)] px-2 py-2 text-sm outline-none" style={{ borderColor: "var(--line-2)" }}><option value="above" style={{ background: "var(--bg-2)" }}>{fa ? "بالای" : "Above"}</option><option value="below" style={{ background: "var(--bg-2)" }}>{fa ? "زیرِ" : "Below"}</option></select>
+                <input value={alPrice} onChange={(e) => setAlPrice(e.target.value)} inputMode="decimal" placeholder={sym + "0"} className="w-24 rounded-xl border bg-[var(--bg-3)] px-2.5 py-2 text-sm outline-none force-ltr" style={{ borderColor: "var(--line-2)" }} />
+                <button onClick={addAlert} className="btn btn-accent px-3 py-2 text-sm">＋</button>
+              </div>
+              <div className="mt-3 space-y-1.5">
+                {alerts.length === 0 && <p className="text-center text-sm text-[var(--fg-2)]">{fa ? "هنوز هشداری تنظیم نکرده‌ای." : "No alerts set yet."}</p>}
+                {alerts.map((a) => { const c = coins.find((x) => x.id === a.coin); return (
+                  <div key={a.id} className="flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-sm" style={{ background: a.hit ? "color-mix(in srgb, #22c55e 14%, transparent)" : "var(--bg-3)" }}>
+                    <span className="force-ltr"><b className="uppercase">{c?.symbol || a.coin}</b> {a.dir === "above" ? "≥" : "≤"} {money(a.target)} {a.hit && <span style={{ color: "#22c55e" }}>✓ {fa ? "فعال شد" : "triggered"}</span>}</span>
+                    <button onClick={() => removeAlert(a.id)} className="text-[var(--fg-2)] hover:text-[#ef4444]">✕</button>
+                  </div>
+                ); })}
+              </div>
+            </div>
+          </div>
+        </Reveal>
+
+        {/* ===== NEW: gainers / losers podium + market pulse ===== */}
+        <Reveal>
+          <div className="mt-4 grid gap-4 lg:grid-cols-2">
+            <div className="panel elev p-5">
+              <p className="label mb-3">🚀 {fa ? "صعودی و نزولی برتر" : "Top gainers & losers"}</p>
+              <div className="grid grid-cols-2 gap-4">
+                {[{ list: gainers, up: true, t: fa ? "صعودی" : "Gainers" }, { list: losers, up: false, t: fa ? "نزولی" : "Losers" }].map((g) => (
+                  <div key={g.t}>
+                    <p className="mono mb-2 text-xs" style={{ color: g.up ? "#22c55e" : "#ef4444" }}>{g.up ? "▲" : "▼"} {g.t}</p>
+                    <div className="space-y-1.5">
+                      {g.list.map((c, i) => (
+                        <button key={c.id} onClick={() => loadDetail(c.id)} className="flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-sm transition-colors hover:bg-[var(--bg-3)]">
+                          <span className="inline-flex items-center gap-2"><span className="mono text-[10px] text-[var(--fg-2)]">{i + 1}</span>{c.image && <img src={c.image} alt="" className="h-4 w-4 rounded-full" />}<b className="uppercase force-ltr">{c.symbol}</b></span>
+                          <span className="mono" style={{ color: c.change24h >= 0 ? "#22c55e" : "#ef4444" }}>{pct(c.change24h)}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="panel elev p-5">
+              <p className="label mb-3">📊 {fa ? "نبضِ بازار" : "Market pulse"}</p>
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  [fa ? "نسبتِ صعود/نزول" : "Adv / Dec", `${breadth.advancers} / ${breadth.decliners}`, undefined],
+                  [fa ? "میانگین تغییر" : "Avg change", pct(breadth.avgChange), breadth.avgChange >= 0 ? "#22c55e" : "#ef4444"],
+                  [fa ? "حجم/ارزش بازار" : "Vol / Cap", `${volCapRatio.toFixed(1)}%`, undefined],
+                  [fa ? "احساسِ بازار" : "Sentiment", `${sentiment} · ${senLabel}`, "var(--accent)"],
+                ].map(([l, v, col]) => (
+                  <div key={l as string} className="rounded-xl border p-3" style={{ borderColor: "var(--line)", background: "var(--bg-3)" }}>
+                    <p className="label mb-1 truncate">{l}</p>
+                    <p className="font-display text-lg force-ltr" style={col ? { color: col as string } : undefined}>{v}</p>
+                  </div>
+                ))}
+              </div>
+              {fgHistory.length > 2 && (
+                <div className="mt-3">
+                  <p className="label mb-1">{fa ? "تاریخچه‌ی احساس" : "Sentiment history"}</p>
+                  <Sparkline data={fgHistory} up={fgHistory[fgHistory.length - 1] >= fgHistory[0]} />
+                </div>
+              )}
+            </div>
+          </div>
+        </Reveal>
+
+        {/* ===== NEW: market-cap treemap ===== */}
+        <Reveal>
+          <div className="panel elev mt-4 p-5">
+            <p className="label mb-4">🗺 {fa ? "نقشه‌ی ارزشِ بازار" : "Market-cap map"}</p>
+            <div className="flex flex-wrap gap-1.5">
+              {treemap.map(({ c, pct: p }) => (
+                <button key={c.id} onClick={() => loadDetail(c.id)} className="relative overflow-hidden rounded-xl p-3 text-start transition-transform hover:scale-[1.03]" style={{ flex: `${Math.max(8, p)} 1 ${Math.max(80, p * 6)}px`, minHeight: 72, background: c.change24h >= 0 ? `rgba(34,197,94,${0.12 + Math.min(0.5, Math.abs(c.change24h) / 12)})` : `rgba(239,68,68,${0.12 + Math.min(0.5, Math.abs(c.change24h) / 12)})`, border: "1px solid var(--line)" }}>
+                  <div className="flex items-center gap-1.5"><b className="uppercase force-ltr">{c.symbol}</b></div>
+                  <div className="mono text-[11px] force-ltr" style={{ color: "var(--fg-2)" }}>{money(c.marketCap)}</div>
+                  <div className="mono text-[11px] force-ltr" style={{ color: c.change24h >= 0 ? "#22c55e" : "#ef4444" }}>{pct(c.change24h)}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </Reveal>
+
+        {/* ===== NEW: compare two coins + DCA simulator ===== */}
+        <Reveal>
+          <div className="mt-4 grid gap-4 lg:grid-cols-2">
+            <div className="panel elev p-5">
+              <p className="label mb-3">⚖ {fa ? "مقایسه" : "Compare"}</p>
+              <div className="mb-3 flex flex-wrap gap-2">
+                <select value={cmpA} onChange={(e) => setCmpA(e.target.value)} className="flex-1 rounded-xl border bg-[var(--bg-3)] px-2.5 py-2 text-sm outline-none" style={{ borderColor: "var(--line-2)" }}>{coins.slice(0, 20).map((c) => <option key={c.id} value={c.id} style={{ background: "var(--bg-2)" }}>{c.name}</option>)}</select>
+                <select value={cmpB} onChange={(e) => setCmpB(e.target.value)} className="flex-1 rounded-xl border bg-[var(--bg-3)] px-2.5 py-2 text-sm outline-none" style={{ borderColor: "var(--line-2)" }}>{coins.slice(0, 20).map((c) => <option key={c.id} value={c.id} style={{ background: "var(--bg-2)" }}>{c.name}</option>)}</select>
+              </div>
+              {cmpAcoin && cmpBcoin && (
+                <>
+                  <div className="mb-2 flex items-center gap-4 text-xs">
+                    <span className="inline-flex items-center gap-1.5"><span className="h-0.5 w-4" style={{ background: "var(--accent)" }} /><b className="uppercase force-ltr">{cmpAcoin.symbol}</b> <span className="mono" style={{ color: cmpAcoin.change24h >= 0 ? "#22c55e" : "#ef4444" }}>{pct(cmpAcoin.change24h)}</span></span>
+                    <span className="inline-flex items-center gap-1.5"><span className="h-0.5 w-4" style={{ background: "var(--accent-2)" }} /><b className="uppercase force-ltr">{cmpBcoin.symbol}</b> <span className="mono" style={{ color: cmpBcoin.change24h >= 0 ? "#22c55e" : "#ef4444" }}>{pct(cmpBcoin.change24h)}</span></span>
+                  </div>
+                  <AreaChart data={norm(cmpAcoin.spark)} up={cmpAcoin.change24h >= 0} height="11rem" overlays={[{ data: norm(cmpBcoin.spark), color: "var(--accent-2)" }]} />
+                  <p className="mono mt-1 text-center text-[10px] text-[var(--fg-2)]">{fa ? "بازدهِ نرمال‌شده‌ی ۷روزه (٪)" : "normalized 7d return (%)"}</p>
+                </>
+              )}
+            </div>
+            <div className="panel elev p-5">
+              <p className="label mb-3">💸 {fa ? "شبیه‌سازِ DCA" : "DCA simulator"}</p>
+              <div className="flex flex-wrap items-end gap-2">
+                <label className="flex-1"><span className="label mb-1 block">{fa ? "مبلغ" : "Amount"} ({sym})</span><input value={dcaAmt} onChange={(e) => setDcaAmt(e.target.value)} inputMode="decimal" className="w-full rounded-xl border bg-[var(--bg-3)] px-2.5 py-2 text-sm outline-none force-ltr" style={{ borderColor: "var(--line-2)" }} /></label>
+                <label className="w-24"><span className="label mb-1 block">{fa ? "دفعات" : "Buys"}</span><input value={dcaCount} onChange={(e) => setDcaCount(e.target.value)} inputMode="numeric" className="w-full rounded-xl border bg-[var(--bg-3)] px-2.5 py-2 text-sm outline-none force-ltr" style={{ borderColor: "var(--line-2)" }} /></label>
+                <select value={dcaCoin} onChange={(e) => setDcaCoin(e.target.value)} className="flex-1 rounded-xl border bg-[var(--bg-3)] px-2.5 py-2 text-sm outline-none" style={{ borderColor: "var(--line-2)" }}>{coins.slice(0, 15).map((c) => <option key={c.id} value={c.id} style={{ background: "var(--bg-2)" }}>{c.name}</option>)}</select>
+              </div>
+              <div className="mt-3 grid grid-cols-3 gap-2">
+                <div className="rounded-xl border p-3 text-center" style={{ borderColor: "var(--line)", background: "var(--bg-3)" }}><p className="label mb-1">{fa ? "سرمایه" : "Invested"}</p><p className="font-display text-lg force-ltr">{money(dcaResult.invested)}</p></div>
+                <div className="rounded-xl border p-3 text-center" style={{ borderColor: "var(--line)", background: "var(--bg-3)" }}><p className="label mb-1">{fa ? "ارزش" : "Value"}</p><p className="font-display text-lg force-ltr">{money(dcaResult.value)}</p></div>
+                <div className="rounded-xl border p-3 text-center" style={{ borderColor: "var(--line)", background: "var(--bg-3)" }}><p className="label mb-1">ROI</p><p className="font-display text-lg force-ltr" style={{ color: dcaResult.roi >= 0 ? "#22c55e" : "#ef4444" }}>{pct(dcaResult.roi)}</p></div>
+              </div>
+            </div>
+          </div>
+        </Reveal>
+
+        {/* ===== NEW: distance from ATH ===== */}
+        {athList.length > 0 && (
+          <Reveal>
+            <div className="panel elev mt-4 p-5">
+              <p className="label mb-4">🏔 {fa ? "فاصله از سقفِ تاریخی" : "Distance from all-time high"}</p>
+              <div className="space-y-2.5">
+                {athList.map(({ c, dist }) => (
+                  <button key={c.id} onClick={() => loadDetail(c.id)} className="flex w-full items-center gap-3 text-sm">
+                    <span className="inline-flex w-20 shrink-0 items-center gap-2">{c.image && <img src={c.image} alt="" className="h-4 w-4 rounded-full" />}<b className="uppercase force-ltr">{c.symbol}</b></span>
+                    <div className="relative h-2.5 flex-1 overflow-hidden rounded-full" style={{ background: "var(--bg-3)" }}>
+                      <div className="absolute inset-y-0 right-0 rounded-full" style={{ width: `${Math.max(2, Math.min(100, 100 + dist))}%`, background: "linear-gradient(90deg,#ef4444,#eab308,#22c55e)" }} />
+                    </div>
+                    <span className="mono w-16 shrink-0 text-end force-ltr" style={{ color: dist >= -5 ? "#22c55e" : "#ef4444" }}>{dist.toFixed(1)}%</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </Reveal>
+        )}
 
         {/* market analytics — breadth, heatmap, volatility leaders */}
         <Reveal>
@@ -561,13 +815,17 @@ export default function LumenPage() {
         <div className="panel elev mt-4 p-5">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap gap-1">{(["all", "watch", "gainers", "losers"] as const).map((tb) => <button key={tb} onClick={() => setTab(tb)} className="rounded-full px-3 py-1.5 text-sm transition-colors" style={{ background: tab === tb ? "var(--accent)" : "transparent", color: tab === tb ? "var(--on-accent)" : "var(--fg-2)", border: "1px solid var(--line-2)" }}>{T[tb]}</button>)}</div>
-            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={T.search} className="rounded-lg border bg-transparent px-3 py-1.5 text-sm outline-none" style={{ borderColor: "var(--line)" }} />
+            <div className="flex items-center gap-2">
+              <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={T.search} className="rounded-lg border bg-transparent px-3 py-1.5 text-sm outline-none" style={{ borderColor: "var(--line)" }} />
+              <button onClick={() => setDensity((d) => (d === "comfy" ? "compact" : "comfy"))} title={fa ? "تراکم" : "Density"} className="grid h-8 w-8 place-items-center rounded-lg border transition-colors hover:border-[var(--accent)]" style={{ borderColor: "var(--line-2)" }}>{density === "comfy" ? "≡" : "☰"}</button>
+              <button onClick={exportCsv} title={fa ? "خروجی CSV" : "Export CSV"} className="grid h-8 w-8 place-items-center rounded-lg border transition-colors hover:border-[var(--accent)]" style={{ borderColor: "var(--line-2)" }}>⭳</button>
+            </div>
           </div>
           {tab === "watch" && filtered.length === 0 ? (
             <p className="py-6 text-center text-sm text-[var(--fg-2)]">{T.noWatch}</p>
           ) : (
             <div className="overflow-x-auto thin-scroll">
-              <table className="w-full text-sm">
+              <table className={`w-full ${density === "compact" ? "text-xs" : "text-sm"}`}>
                 <thead><tr className="text-start text-xs text-[var(--fg-2)]">
                   <th className="pb-2 text-start font-normal" />
                   <Th k="rank" label={T.rankc} cls="text-start" />
@@ -598,6 +856,33 @@ export default function LumenPage() {
 
         <p className="mt-6 flex items-center justify-center gap-2 text-center text-xs text-[var(--fg-2)]"><span className="h-1.5 w-1.5 rounded-full" style={{ background: usingLive ? "#22c55e" : "#eab308" }} />{usingLive ? T.real : T.offline}</p>
       </main>
+
+      {/* PORTFOLIO MODAL */}
+      {showPortfolio && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center" style={{ background: "rgba(0,0,0,0.5)" }} onClick={() => setShowPortfolio(false)}>
+          <div className="panel elev w-full max-w-md p-6" style={{ borderRadius: "1.5rem" }} onClick={(e) => e.stopPropagation()}>
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="font-display text-xl">💼 {fa ? "مدیریتِ پرتفوی" : "Manage portfolio"}</h2>
+              <button onClick={() => setShowPortfolio(false)} className="grid h-9 w-9 place-items-center rounded-full border transition-transform hover:scale-110" style={{ borderColor: "var(--line-2)" }}>✕</button>
+            </div>
+            <div className="flex flex-wrap items-end gap-2">
+              <select value={pfCoin} onChange={(e) => setPfCoin(e.target.value)} className="flex-1 rounded-xl border bg-[var(--bg-3)] px-2.5 py-2 text-sm outline-none" style={{ borderColor: "var(--line-2)" }}>{coins.slice(0, 20).map((c) => <option key={c.id} value={c.id} style={{ background: "var(--bg-2)" }}>{c.name}</option>)}</select>
+              <input value={pfAmt} onChange={(e) => setPfAmt(e.target.value)} inputMode="decimal" placeholder={fa ? "مقدار" : "amount"} className="w-28 rounded-xl border bg-[var(--bg-3)] px-2.5 py-2 text-sm outline-none force-ltr" style={{ borderColor: "var(--line-2)" }} />
+              <button onClick={addHolding} className="btn btn-accent px-3 py-2 text-sm">＋</button>
+            </div>
+            <div className="mt-4 max-h-64 space-y-1.5 overflow-y-auto thin-scroll">
+              {portfolioRows.length === 0 && <p className="py-4 text-center text-sm text-[var(--fg-2)]">{fa ? "هنوز دارایی‌ای نداری." : "No holdings yet."}</p>}
+              {portfolioRows.map((r) => (
+                <div key={r.c.id} className="flex items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-sm" style={{ background: "var(--bg-3)" }}>
+                  <span className="inline-flex items-center gap-2">{r.c.image && <img src={r.c.image} alt="" className="h-5 w-5 rounded-full" />}<b>{r.c.name}</b><span className="text-[var(--fg-2)] force-ltr">× {r.amt}</span></span>
+                  <span className="flex items-center gap-3"><span className="mono force-ltr">{money(r.value)}</span><button onClick={() => removeHolding(r.c.id)} className="text-[var(--fg-2)] hover:text-[#ef4444]">✕</button></span>
+                </div>
+              ))}
+            </div>
+            {portfolioValue > 0 && <div className="mt-4 flex items-center justify-between border-t pt-3" style={{ borderColor: "var(--line)" }}><span className="label">{fa ? "ارزشِ کل" : "Total value"}</span><span className="font-display text-2xl force-ltr">{money(portfolioValue)}</span></div>}
+          </div>
+        </div>
+      )}
 
       {/* DETAIL MODAL */}
       {detailOpen && detail && (

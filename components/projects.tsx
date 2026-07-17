@@ -59,7 +59,7 @@ export function Projects() {
             <div>
               <p className="label">{t.projects.eyebrow}</p>
               <h2 className="display mt-3 text-5xl sm:text-6xl">
-                {t.projects.heading1} <span className="display-italic accent-text">{t.projects.heading2}</span>
+                {t.projects.heading1} <span className="display-italic gradient-text">{t.projects.heading2}</span>
               </h2>
             </div>
             <a href={profile.github} target="_blank" rel="noopener noreferrer" className="btn btn-outline">
