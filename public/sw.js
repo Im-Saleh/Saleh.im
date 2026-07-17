@@ -1,10 +1,14 @@
-/* Vault / saleh.im — offline service worker.
-   App-shell caching so the vault (and site) keep working with no network.
-   Navigation is network-first with a cache fallback; static assets use
-   stale-while-revalidate. Nothing sensitive is cached — the vault ciphertext
-   lives in localStorage, not here. */
+/* Vault / saleh.im — offline service worker (v3).
 
-const CACHE = "saleh-vault-v1";
+   Freshness-first: page navigations and dynamic assets always try the network
+   first so a new deploy is picked up immediately. Only Next's content-hashed,
+   immutable build chunks (/_next/static/…) are served cache-first for speed.
+   The cache version is bumped on every meaningful change so old caches are
+   purged on activate, and the page auto-reloads when a new worker takes over
+   (see components/pwa-register). Nothing sensitive is cached — the vault
+   ciphertext lives in localStorage, not here. */
+
+const CACHE = "saleh-site-v3";
 const APP_SHELL = ["/", "/vault", "/manifest.webmanifest", "/icon.svg", "/favicon.svg"];
 
 self.addEventListener("install", (event) => {
@@ -27,44 +31,52 @@ self.addEventListener("activate", (event) => {
   );
 });
 
+// Allow the page to tell a waiting worker to activate immediately.
+self.addEventListener("message", (event) => {
+  if (event.data === "skip-waiting") self.skipWaiting();
+});
+
+const isImmutable = (url) => url.pathname.startsWith("/_next/static/") || url.pathname.startsWith("/_next/image");
+
 self.addEventListener("fetch", (event) => {
   const req = event.request;
   if (req.method !== "GET") return;
 
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
-  // never cache the live IP endpoint
-  if (url.pathname.startsWith("/api/")) return;
+  if (url.pathname.startsWith("/api/")) return; // never cache live endpoints
 
-  if (req.mode === "navigate") {
+  // Immutable, content-hashed build assets → cache-first (safe + fast).
+  if (isImmutable(url)) {
     event.respondWith(
       (async () => {
-        try {
-          const fresh = await fetch(req);
-          const cache = await caches.open(CACHE);
-          cache.put(req, fresh.clone());
-          return fresh;
-        } catch {
-          const cached = await caches.match(req);
-          return cached || (await caches.match("/vault")) || (await caches.match("/")) || Response.error();
-        }
+        const cached = await caches.match(req);
+        if (cached) return cached;
+        const res = await fetch(req);
+        if (res && res.status === 200) caches.open(CACHE).then((c) => c.put(req, res.clone()));
+        return res;
       })()
     );
     return;
   }
 
+  // Everything else (navigations + dynamic assets) → network-first so updates
+  // always win when online, with a cache fallback for offline.
   event.respondWith(
     (async () => {
-      const cached = await caches.match(req);
-      const network = fetch(req)
-        .then((res) => {
-          if (res && res.status === 200 && res.type === "basic") {
-            caches.open(CACHE).then((c) => c.put(req, res.clone()));
-          }
-          return res;
-        })
-        .catch(() => cached);
-      return cached || network;
+      try {
+        const fresh = await fetch(req);
+        if (fresh && fresh.status === 200 && fresh.type === "basic") {
+          const cache = await caches.open(CACHE);
+          cache.put(req, fresh.clone());
+        }
+        return fresh;
+      } catch {
+        const cached = await caches.match(req);
+        if (cached) return cached;
+        if (req.mode === "navigate") return (await caches.match("/vault")) || (await caches.match("/")) || Response.error();
+        return Response.error();
+      }
     })()
   );
 });

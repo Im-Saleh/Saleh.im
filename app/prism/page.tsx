@@ -19,6 +19,16 @@ import { LangToggle } from "@/components/lang-toggle";
 
 const PRESETS = ["#6366f1", "#22c55e", "#f59e0b", "#ec4899", "#06b6d4", "#ef4444", "#8b5cf6", "#14b8a6"];
 
+// One-click design-system starting points — each sets the whole token bundle.
+const THEME_PRESETS: { name: string; accent: string; radius: number; density: number; font: number; border: number; shadow: number; dark: boolean }[] = [
+  { name: "Indigo", accent: "#6366f1", radius: 12, density: 12, font: 15, border: 1, shadow: 18, dark: true },
+  { name: "Emerald", accent: "#10b981", radius: 10, density: 12, font: 15, border: 1, shadow: 14, dark: true },
+  { name: "Sunset", accent: "#f97316", radius: 16, density: 13, font: 15, border: 1, shadow: 22, dark: false },
+  { name: "Rose", accent: "#f43f5e", radius: 22, density: 12, font: 15, border: 2, shadow: 20, dark: false },
+  { name: "Mono", accent: "#111827", radius: 4, density: 10, font: 14, border: 2, shadow: 0, dark: false },
+  { name: "Cyber", accent: "#22d3ee", radius: 2, density: 11, font: 14, border: 1, shadow: 30, dark: true },
+];
+
 export default function PrismPage() {
   const { lang } = useLang();
   const fa = lang === "fa";
@@ -95,6 +105,26 @@ export default {
 };`, [accent, radius, density, font, shadow]);
 
   const copy = (text: string, key: string) => { navigator.clipboard?.writeText(text); setCopied(key); setTimeout(() => setCopied(""), 1600); };
+  const applyPreset = (p: typeof THEME_PRESETS[number]) => { setAccent(p.accent); setRadius(p.radius); setDensity(p.density); setFont(p.font); setBorder(p.border); setShadow(p.shadow); setDark(p.dark); };
+  const reactSnippet = `export function Button({ children, ...props }) {
+  return (
+    <button
+      style={{
+        background: "${accent}",
+        color: "#fff",
+        borderRadius: ${radius},
+        padding: "${Math.round(density * 0.6)}px ${Math.round(density * 1.1)}px",
+        fontSize: ${font},
+        fontWeight: 600,
+        border: "none",
+        boxShadow: "0 ${shadow}px ${shadow * 2.4}px -${shadow}px ${accent}55",
+      }}
+      {...props}
+    >
+      {children}
+    </button>
+  );
+}`;
 
   const Row = ({ label, children }: { label: string; children: React.ReactNode }) => (
     <label className="block">
@@ -133,6 +163,14 @@ export default {
             <p className="mt-1 text-sm text-[var(--fg-2)]">{T.tagline}</p>
           </div>
           <div className="panel space-y-4 p-4">
+            <p className="label">{fa ? "قالب‌های آماده" : "Presets"}</p>
+            <div className="flex flex-wrap gap-1.5">
+              {THEME_PRESETS.map((p) => (
+                <button key={p.name} onClick={() => applyPreset(p)} className="flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-transform hover:scale-[1.04]" style={{ borderColor: accent === p.accent ? p.accent : "var(--line-2)" }}>
+                  <span className="h-3 w-3 rounded-full" style={{ background: p.accent }} />{p.name}
+                </button>
+              ))}
+            </div>
             <p className="label">{T.tokens}</p>
             <Row label={T.accent}>
               <div className="flex items-center gap-2">
@@ -156,6 +194,7 @@ export default {
             <div className="grid grid-cols-2 gap-2 pt-1">
               <button onClick={() => copy(cssText, "css")} className="btn btn-accent text-xs">{copied === "css" ? "✓ " + T.copied : T.copyCss}</button>
               <button onClick={() => copy(twText, "tw")} className="btn btn-outline text-xs">{copied === "tw" ? "✓ " + T.copied : T.copyTw}</button>
+              <button onClick={() => copy(reactSnippet, "rx")} className="btn btn-outline col-span-2 text-xs">{copied === "rx" ? "✓ " + T.copied : (fa ? "کپیِ کامپوننتِ React" : "Copy React component")}</button>
             </div>
           </div>
           <pre className="panel max-h-48 overflow-auto p-3 mono text-[11px] text-[var(--fg-2)] thin-scroll force-ltr">{cssText}</pre>

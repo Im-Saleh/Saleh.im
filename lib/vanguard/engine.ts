@@ -249,9 +249,9 @@ const ARMOR_ABSORB = 0.5; // armor absorbs 50% of incoming damage until depleted
 // Velocity is no longer snapped instantly to the input direction; instead the
 // player accelerates toward a "wish" velocity and coasts to a stop, which
 // gives real weight and lets you carry speed around corners.
-const GROUND_ACCEL = 14;     // how fast we approach the wish velocity on foot
-const GROUND_FRICTION = 11;  // how fast we bleed speed when there's no input
-const AIR_ACCEL = 4.5;       // limited air control while jumping
+const GROUND_ACCEL = 24;     // how fast we approach the wish velocity on foot (snappy)
+const GROUND_FRICTION = 18;  // how fast we bleed speed when there's no input
+const AIR_ACCEL = 6;         // limited air control while jumping
 const GRAVITY = 20;          // world units / s^2 applied to the jump arc
 const JUMP_VELOCITY = 6.6;   // initial upward velocity of a jump
 const CROUCH_SPEED_MULT = 0.52;
@@ -513,6 +513,9 @@ export class VanguardEngine {
     document.addEventListener("mousemove", this.onMouseMove);
     document.addEventListener("pointerlockchange", this.onLockChange);
     this.canvas.addEventListener("contextmenu", this.onContextMenu);
+    // If focus is lost (alt-tab) a keyup may never arrive, which would leave a
+    // movement key "stuck". Clear all held input whenever we lose focus.
+    window.addEventListener("blur", this.onBlur);
   }
 
   private unbindInput() {
@@ -523,9 +526,11 @@ export class VanguardEngine {
     document.removeEventListener("mousemove", this.onMouseMove);
     document.removeEventListener("pointerlockchange", this.onLockChange);
     this.canvas.removeEventListener("contextmenu", this.onContextMenu);
+    window.removeEventListener("blur", this.onBlur);
   }
 
   private onContextMenu = (e: Event) => e.preventDefault();
+  private onBlur = () => { this.keys.clear(); this.mouseDown = false; this.rightDown = false; };
 
   private onKeyDown = (e: KeyboardEvent) => {
     const k = e.key.toLowerCase();
@@ -1829,6 +1834,44 @@ export class VanguardEngine {
       ctx.beginPath();
       ctx.arc(headCX, headCY - headR * 0.2, headR * 1.12, Math.PI, Math.PI * 2);
       ctx.fill();
+    }
+
+    // boots
+    ctx.fillStyle = "#0e1116";
+    ctx.fillRect(cx - torsoW * 0.42 - legW / 2 + legOff, legTop + legLen - sh * 0.05, legW * 1.15, sh * 0.05);
+    ctx.fillRect(cx + torsoW * 0.42 - legW / 2 - legOff, legTop + legLen - sh * 0.05, legW * 1.15, sh * 0.05);
+
+    if (!zombie) {
+      // shoulder pads
+      ctx.fillStyle = shadeColor(cloth, 0.72);
+      ctx.fillRect(cx - torsoW / 2 - armW * 0.25, torsoTop - sh * 0.008, torsoW * 0.3, sh * 0.05);
+      ctx.fillRect(cx + torsoW / 2 - torsoW * 0.3 + armW * 0.25, torsoTop - sh * 0.008, torsoW * 0.3, sh * 0.05);
+      // helmet visor band + chin strap
+      ctx.fillStyle = "rgba(10,14,20,0.9)";
+      ctx.fillRect(headCX - headR, headCY - headR * 0.12, headR * 2, headR * 0.42);
+      // muzzle flash + short barrel when firing
+      if (actor.fireCooldown > 0 && actor.recoilKick > 0.05) {
+        const mzx = headCX + sw * 0.3;
+        const mzy = torsoTop + sh * 0.06;
+        ctx.fillStyle = "#15181d";
+        ctx.fillRect(headCX + sw * 0.06, mzy - sh * 0.012, sw * 0.26, sh * 0.03);
+        ctx.save();
+        ctx.globalAlpha = clamp(actor.recoilKick, 0, 1);
+        const mg = ctx.createRadialGradient(mzx, mzy, 1, mzx, mzy, sh * 0.09);
+        mg.addColorStop(0, "#fff7d6"); mg.addColorStop(0.5, "#ffb020"); mg.addColorStop(1, "transparent");
+        ctx.fillStyle = mg;
+        ctx.beginPath(); ctx.arc(mzx, mzy, sh * 0.09, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+      }
+    } else {
+      // zombie: blood stains + gaping jaw for a grislier read
+      ctx.fillStyle = "rgba(120,20,20,0.5)";
+      ctx.beginPath();
+      ctx.arc(cx - torsoW * 0.15, torsoTop + sh * 0.12, sw * 0.06, 0, Math.PI * 2);
+      ctx.arc(cx + torsoW * 0.1, torsoTop + sh * 0.24, sw * 0.05, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#3a1414";
+      ctx.fillRect(headCX - headR * 0.4, headCY + headR * 0.28, headR * 0.8, headR * 0.5);
     }
 
     // health bar (only when hurt)

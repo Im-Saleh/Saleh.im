@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { ThemePicker } from "@/components/theme-picker";
+import { LangToggle } from "@/components/lang-toggle";
 import { RiftGame, RunConfig, RunResult, UPGRADES, type GameState, type Hud } from "@/lib/rift/engine";
 import { ABILITIES, AbilityId } from "@/lib/rift/abilities";
 import {
@@ -276,6 +277,7 @@ export default function RiftPage() {
         )}
         <div className="pointer-events-auto flex items-center gap-2">
           {gs === "playing" && <button onClick={() => g()?.togglePause()} className="glass grid h-9 w-9 place-items-center rounded-full" style={{ border: "1px solid var(--line)" }} aria-label="Pause"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1" /><rect x="14" y="5" width="4" height="14" rx="1" /></svg></button>}
+          <LangToggle />
           <ThemePicker />
         </div>
       </header>
