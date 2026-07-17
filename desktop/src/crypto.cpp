@@ -186,7 +186,7 @@ const std::string LOWER_NA = "abcdefghijkmnopqrstuvwxyz";  // no l
 const std::string UPPER_NA = "ABCDEFGHJKLMNPQRSTUVWXYZ";    // no I,O
 const std::string DIGITS_NA = "23456789";                   // no 0,1
 
-const std::array<const char*, 72> WORDS = {
+const std::array<const char*, 200> WORDS = {
     "anchor","amber","arrow","atlas","aurora","beacon","birch","bison","blaze","bloom",
     "borealis","boulder","breeze","bridge","bronze","cactus","canyon","cedar","cipher","citadel",
     "clover","cobalt","comet","compass","copper","coral","cosmos","crater","crystal","cyclone",
@@ -194,25 +194,58 @@ const std::array<const char*, 72> WORDS = {
     "garnet","glacier","granite","harbor","hawk","helix","horizon","indigo","island","jaguar",
     "jupiter","kestrel","lagoon","lantern","lunar","maple","meteor","mirage","nebula","nova",
     "oasis","obsidian","onyx","orbit","phoenix","prism","quartz","raven","summit","tempest",
-    "vertex","zephyr"};
+    "vertex","zephyr","almond","aspen","basalt","beacon","willow","walnut","spruce","sequoia",
+    "meadow","marble","lagoon","juniper","jasmine","ivory","hazel","harvest","gravity","glimmer",
+    "fjord","feather","estuary","emerald","dusk","driftwood","dolphin","cobble","cinder","chestnut",
+    "cascade","canvas","bramble","bramley","botanic","blizzard","beetle","banyan","azure","autumn",
+    "acorn","abyss","zenith","yonder","xenon","wildfire","whisper","waterfall","vortex","voyage",
+    "violet","valley","tundra","trident","topaz","timber","thunder","thicket","talon","syrup",
+    "sunset","sunrise","sonar","solstice","solar","snowfall","skyline","sierra","shadow","serene",
+    "sapphire","saffron","russet","riptide","ripple","reef","radiant","quiver","quill","pyramid",
+    "prairie","polar","plateau","pebble","pasture","panther","paddle","otter","osprey","opal",
+    "olive","october","northwind","nimbus","nickel","narwhal","mystic","mulberry","mosaic","monsoon",
+    "mistral","mineral","midnight","mercury","mango","magnet","lyric","lupine","lotus","lichen",
+    "lattice","lark","kelp","kayak","juno","jetty","jade","ironwood","iris","hollow",
+    "hemlock","heron","heather","hearth","gulch","grotto","grove","gossamer","goldfinch","glacial"};
 }  // namespace
 
 std::string generatePassword(const GenOptions& o) {
+    auto strip = [&](std::string s) {
+        if (o.exclude.empty()) return s;
+        std::string r;
+        for (char c : s)
+            if (o.exclude.find(c) == std::string::npos) r += c;
+        return r;
+    };
+    const std::string lower = strip(o.avoidAmbiguous ? LOWER_NA : LOWER);
+    const std::string upper = strip(o.avoidAmbiguous ? UPPER_NA : UPPER);
+    const std::string digits = strip(o.avoidAmbiguous ? DIGITS_NA : DIGITS);
+    const std::string symbols = strip(SYMBOLS);
+
     std::vector<std::string> pools;
-    if (o.lower) pools.push_back(o.avoidAmbiguous ? LOWER_NA : LOWER);
-    if (o.upper) pools.push_back(o.avoidAmbiguous ? UPPER_NA : UPPER);
-    if (o.digits) pools.push_back(o.avoidAmbiguous ? DIGITS_NA : DIGITS);
-    if (o.symbols) pools.push_back(SYMBOLS);
-    if (pools.empty()) pools.push_back(LOWER);
+    if (o.lower && !lower.empty()) pools.push_back(lower);
+    if (o.upper && !upper.empty()) pools.push_back(upper);
+    if (o.digits && !digits.empty()) pools.push_back(digits);
+    if (o.symbols && !symbols.empty()) pools.push_back(symbols);
+    if (pools.empty()) pools.push_back(lower.empty() ? LOWER : lower);
 
     std::string all;
     for (const auto& p : pools) all += p;
 
     const int len = std::max(o.length, static_cast<int>(pools.size()));
+    auto pick = [](const std::string& p) { return p[randomUniform(static_cast<uint32_t>(p.size()))]; };
+
     std::string chars;
     chars.reserve(len);
-    for (const auto& p : pools) chars.push_back(p[randomUniform(static_cast<uint32_t>(p.size()))]);
-    while (static_cast<int>(chars.size()) < len) chars.push_back(all[randomUniform(static_cast<uint32_t>(all.size()))]);
+    // best-effort minimum digit / symbol counts
+    if (o.digits && !digits.empty())
+        for (int i = 0; i < o.minDigits && static_cast<int>(chars.size()) < len; ++i) chars.push_back(pick(digits));
+    if (o.symbols && !symbols.empty())
+        for (int i = 0; i < o.minSymbols && static_cast<int>(chars.size()) < len; ++i) chars.push_back(pick(symbols));
+    // at least one from each selected class
+    for (const auto& p : pools)
+        if (static_cast<int>(chars.size()) < len) chars.push_back(pick(p));
+    while (static_cast<int>(chars.size()) < len) chars.push_back(pick(all));
 
     // Fisher–Yates shuffle
     for (std::size_t i = chars.size(); i > 1; --i) {
@@ -221,6 +254,37 @@ std::string generatePassword(const GenOptions& o) {
     }
     return chars;
 }
+
+std::string generatePin(int digits) {
+    if (digits < 1) digits = 4;
+    std::string s;
+    s.reserve(digits);
+    for (int i = 0; i < digits; ++i) s.push_back(static_cast<char>('0' + randomUniform(10)));
+    return s;
+}
+
+std::string generateHexKey(int bytes) {
+    if (bytes < 1) bytes = 16;
+    return toHex(randomBytes(static_cast<std::size_t>(bytes)));
+}
+
+std::string generatePronounceable(int length, bool capitalize, bool number) {
+    static const std::string CONS = "bcdfghjklmnpqrstvwxz";
+    static const std::string VOW = "aeiouy";
+    if (length < 3) length = 3;
+    std::string s;
+    bool cons = true;
+    while (static_cast<int>(s.size()) < length) {
+        s.push_back(cons ? CONS[randomUniform(static_cast<uint32_t>(CONS.size()))]
+                         : VOW[randomUniform(static_cast<uint32_t>(VOW.size()))]);
+        cons = !cons;
+    }
+    if (capitalize && !s.empty()) s[0] = static_cast<char>(std::toupper(static_cast<unsigned char>(s[0])));
+    if (number) s += std::to_string(10 + randomUniform(90));
+    return s;
+}
+
+std::size_t wordlistSize() { return WORDS.size(); }
 
 std::string generatePassphrase(int words, const std::string& sep, bool capitalize, bool number) {
     if (words < 1) words = 1;

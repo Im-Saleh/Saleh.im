@@ -354,7 +354,7 @@ export default function LumenPage() {
 
       <main className="wrap py-6">
         <div className="mb-5 flex items-end justify-between">
-          <h1 className="font-display text-2xl sm:text-3xl">{T.title}</h1>
+          <h1 className="font-display gradient-text text-2xl sm:text-3xl">{T.title}</h1>
           <span className="mono text-xs text-[var(--fg-2)]">{updated ? `${T.updated}: ${updated.toLocaleTimeString(fa ? "fa-IR" : "en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}` : "…"}</span>
         </div>
 

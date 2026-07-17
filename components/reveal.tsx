@@ -11,11 +11,14 @@ export function Reveal({
   delay = 0,
   className = "",
   as: Tag = "div",
+  variant,
 }: {
   children: ReactNode;
   delay?: number;
   className?: string;
   as?: ElementType;
+  /** entrance direction / style — pairs with the `.reveal[data-variant]` CSS */
+  variant?: "up" | "left" | "right" | "scale" | "blur";
 }) {
   const ref = useRef<HTMLElement | null>(null);
   const [visible, setVisible] = useState(false);
@@ -52,6 +55,7 @@ export function Reveal({
     <Component
       ref={ref as any}
       className={`reveal ${visible ? "in" : ""} ${className}`}
+      data-variant={variant && variant !== "up" ? variant : undefined}
       style={{ transitionDelay: `${delay}ms` }}
     >
       {children}

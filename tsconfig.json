@@ -19,5 +19,5 @@
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["node_modules", "out", "public"]
+  "exclude": ["node_modules", "out", "public", "desktop", ".open-next", ".wrangler"]
 }

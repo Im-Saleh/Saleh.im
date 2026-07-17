@@ -25,6 +25,108 @@
   color-scheme: dark;
 }
 
+[data-theme="midnight"] {
+  --bg: #080d18;
+  --bg-2: #0f1626;
+  --bg-3: #18223a;
+  --fg: #e6edf7;
+  --fg-2: #8595b0;
+  --line: rgba(255, 255, 255, 0.08);
+  --line-2: rgba(255, 255, 255, 0.17);
+  --accent: #38bdf8;
+  --accent-2: #818cf8;
+  --on-accent: #050912;
+  --glow: rgba(56, 189, 248, 0.4);
+  --shadow: rgba(0, 0, 0, 0.6);
+  --grid: rgba(255, 255, 255, 0.04);
+  color-scheme: dark;
+}
+
+[data-theme="obsidian"] {
+  --bg: #0a0a0f;
+  --bg-2: #141420;
+  --bg-3: #1e1e2e;
+  --fg: #ececf5;
+  --fg-2: #8b8ba6;
+  --line: rgba(255, 255, 255, 0.08);
+  --line-2: rgba(255, 255, 255, 0.17);
+  --accent: #a78bfa;
+  --accent-2: #f472b6;
+  --on-accent: #0a0a0f;
+  --glow: rgba(167, 139, 250, 0.4);
+  --shadow: rgba(0, 0, 0, 0.6);
+  --grid: rgba(255, 255, 255, 0.04);
+  color-scheme: dark;
+}
+
+[data-theme="dracula"] {
+  --bg: #282a36;
+  --bg-2: #2f313f;
+  --bg-3: #383b4c;
+  --fg: #f8f8f2;
+  --fg-2: #a2a4b8;
+  --line: rgba(255, 255, 255, 0.09);
+  --line-2: rgba(255, 255, 255, 0.18);
+  --accent: #bd93f9;
+  --accent-2: #ff79c6;
+  --on-accent: #21222c;
+  --glow: rgba(189, 147, 249, 0.4);
+  --shadow: rgba(0, 0, 0, 0.5);
+  --grid: rgba(255, 255, 255, 0.04);
+  color-scheme: dark;
+}
+
+[data-theme="forest"] {
+  --bg: #0a1310;
+  --bg-2: #0f1c17;
+  --bg-3: #17281f;
+  --fg: #e4f0e9;
+  --fg-2: #87a397;
+  --line: rgba(255, 255, 255, 0.08);
+  --line-2: rgba(255, 255, 255, 0.16);
+  --accent: #4ade80;
+  --accent-2: #2dd4bf;
+  --on-accent: #08110d;
+  --glow: rgba(74, 222, 128, 0.35);
+  --shadow: rgba(0, 0, 0, 0.55);
+  --grid: rgba(255, 255, 255, 0.035);
+  color-scheme: dark;
+}
+
+[data-theme="ocean"] {
+  --bg: #07141c;
+  --bg-2: #0c1e29;
+  --bg-3: #142c3a;
+  --fg: #e3f1f7;
+  --fg-2: #84a7b8;
+  --line: rgba(255, 255, 255, 0.08);
+  --line-2: rgba(255, 255, 255, 0.16);
+  --accent: #22d3ee;
+  --accent-2: #34d399;
+  --on-accent: #04101a;
+  --glow: rgba(34, 211, 238, 0.38);
+  --shadow: rgba(0, 0, 0, 0.55);
+  --grid: rgba(255, 255, 255, 0.035);
+  color-scheme: dark;
+}
+
+[data-theme="ember"] {
+  --bg: #140c0e;
+  --bg-2: #1e1216;
+  --bg-3: #2a191f;
+  --fg: #f6e7ec;
+  --fg-2: #b3909c;
+  --line: rgba(255, 255, 255, 0.08);
+  --line-2: rgba(255, 255, 255, 0.17);
+  --accent: #fb7185;
+  --accent-2: #fbbf24;
+  --on-accent: #140c0e;
+  --glow: rgba(251, 113, 133, 0.38);
+  --shadow: rgba(0, 0, 0, 0.55);
+  --grid: rgba(255, 255, 255, 0.035);
+  color-scheme: dark;
+}
+
 [data-theme="paper"] {
   --bg: #f2eee4;
   --bg-2: #fbf8f0;
@@ -39,6 +141,74 @@
   --glow: rgba(229, 67, 42, 0.22);
   --shadow: rgba(80, 60, 30, 0.14);
   --grid: rgba(30, 25, 15, 0.05);
+  color-scheme: light;
+}
+
+[data-theme="frost"] {
+  --bg: #eef2f8;
+  --bg-2: #ffffff;
+  --bg-3: #e4eaf3;
+  --fg: #141a24;
+  --fg-2: #586a82;
+  --line: rgba(20, 26, 36, 0.12);
+  --line-2: rgba(20, 26, 36, 0.22);
+  --accent: #2563eb;
+  --accent-2: #0ea5e9;
+  --on-accent: #ffffff;
+  --glow: rgba(37, 99, 235, 0.22);
+  --shadow: rgba(30, 50, 90, 0.16);
+  --grid: rgba(20, 26, 36, 0.05);
+  color-scheme: light;
+}
+
+[data-theme="rose"] {
+  --bg: #f8eef3;
+  --bg-2: #fffafc;
+  --bg-3: #f1e2ea;
+  --fg: #2a1620;
+  --fg-2: #8a6476;
+  --line: rgba(42, 22, 32, 0.12);
+  --line-2: rgba(42, 22, 32, 0.22);
+  --accent: #db2777;
+  --accent-2: #7c3aed;
+  --on-accent: #ffffff;
+  --glow: rgba(219, 39, 119, 0.22);
+  --shadow: rgba(120, 40, 80, 0.14);
+  --grid: rgba(42, 22, 32, 0.05);
+  color-scheme: light;
+}
+
+[data-theme="sand"] {
+  --bg: #efe9dd;
+  --bg-2: #fbf7ef;
+  --bg-3: #e6ddcb;
+  --fg: #241d10;
+  --fg-2: #7a6c52;
+  --line: rgba(36, 29, 16, 0.13);
+  --line-2: rgba(36, 29, 16, 0.24);
+  --accent: #b45309;
+  --accent-2: #0f766e;
+  --on-accent: #ffffff;
+  --glow: rgba(180, 83, 9, 0.2);
+  --shadow: rgba(90, 70, 30, 0.15);
+  --grid: rgba(36, 29, 16, 0.05);
+  color-scheme: light;
+}
+
+[data-theme="mint"] {
+  --bg: #edf6f0;
+  --bg-2: #fbfffc;
+  --bg-3: #e0efe6;
+  --fg: #0f1f17;
+  --fg-2: #4f7563;
+  --line: rgba(15, 31, 23, 0.12);
+  --line-2: rgba(15, 31, 23, 0.22);
+  --accent: #059669;
+  --accent-2: #0284c7;
+  --on-accent: #ffffff;
+  --glow: rgba(5, 150, 105, 0.2);
+  --shadow: rgba(20, 70, 50, 0.14);
+  --grid: rgba(15, 31, 23, 0.05);
   color-scheme: light;
 }
 
@@ -791,3 +961,259 @@ a:hover > .logo-mark,
   opacity: 0.5;
   pointer-events: none;
 }
+
+
+/* =========================================================================
+   PREMIUM MOTION & DEPTH  v2
+   A richer layer of tactile hover, elevation, glow and entrance motion that
+   applies across the whole site and every sub-project. Compositor-only
+   (transform / opacity / shadow) so scrolling stays smooth.
+   ========================================================================= */
+
+/* --- Reusable elevated card with layered, precise shadows --- */
+.card-lift {
+  position: relative;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 1.15rem;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 1px 2px -1px var(--shadow),
+    0 8px 18px -12px var(--shadow),
+    0 22px 44px -26px var(--shadow);
+  transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 0.45s cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 0.3s ease;
+  will-change: transform;
+}
+.card-lift:hover {
+  transform: translateY(-6px);
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--line-2));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 6px 14px -6px var(--shadow),
+    0 26px 52px -20px var(--shadow),
+    0 50px 100px -40px var(--shadow),
+    0 0 60px -26px var(--glow);
+}
+
+/* --- CSS-only interactive 3D tilt (leans away from the top on hover) --- */
+.tilt {
+  transform-style: preserve-3d;
+  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.5s ease;
+}
+.tilt:hover {
+  transform: perspective(900px) rotateX(4deg) translateY(-4px);
+}
+
+/* --- Animated accent gradient text --- */
+.gradient-text {
+  background: linear-gradient(100deg, var(--accent), var(--accent-2), var(--accent));
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: gradientSlide 7s ease infinite;
+}
+@keyframes gradientSlide {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .gradient-text { animation: none; }
+}
+
+/* --- Sweeping shine highlight for any surface --- */
+.shine {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+.shine::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: linear-gradient(
+    115deg,
+    transparent 30%,
+    color-mix(in srgb, var(--fg) 10%, transparent) 48%,
+    transparent 66%
+  );
+  transform: translateX(-140%);
+  transition: transform 0.75s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+}
+.shine:hover::after {
+  transform: translateX(140%);
+}
+
+/* --- Frosted glass panel (great over aurora / imagery) --- */
+.glass {
+  background: color-mix(in srgb, var(--bg-2) 62%, transparent);
+  backdrop-filter: blur(14px) saturate(1.35);
+  -webkit-backdrop-filter: blur(14px) saturate(1.35);
+  border: 1px solid color-mix(in srgb, var(--fg) 10%, transparent);
+  box-shadow: 0 20px 50px -28px var(--shadow);
+}
+
+/* --- Soft accent halo that intensifies on hover --- */
+.halo {
+  transition: box-shadow 0.4s ease, transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.halo:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent),
+    0 12px 40px -14px var(--glow);
+}
+
+/* --- Reveal direction & scale variants (used by <Reveal variant=…/>) --- */
+.reveal[data-variant="left"]  { transform: translate3d(-42px, 0, 0); }
+.reveal[data-variant="right"] { transform: translate3d(42px, 0, 0); }
+.reveal[data-variant="scale"] { transform: scale(0.9); }
+.reveal[data-variant="blur"]  { filter: blur(10px); }
+.reveal[data-variant="left"].in,
+.reveal[data-variant="right"].in,
+.reveal[data-variant="scale"].in { transform: none; }
+.reveal[data-variant="blur"].in  { filter: none; }
+
+/* --- Floating / breathing motion --- */
+.animate-float {
+  animation: floatY 6.5s ease-in-out infinite;
+  will-change: transform;
+}
+@keyframes floatY {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+/* --- Shimmering underline for section links --- */
+.udl {
+  background-image: linear-gradient(90deg, var(--accent), var(--accent-2));
+  background-size: 0% 2px;
+  background-repeat: no-repeat;
+  background-position: 0 100%;
+  transition: background-size 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  padding-bottom: 2px;
+}
+.udl:hover { background-size: 100% 2px; }
+
+/* --- Pulsing status ring --- */
+.pulse-ring {
+  position: relative;
+}
+.pulse-ring::before {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: inherit;
+  border: 1px solid var(--accent);
+  opacity: 0;
+  animation: pulseRing 2.4s ease-out infinite;
+  pointer-events: none;
+}
+@keyframes pulseRing {
+  0% { opacity: 0.6; transform: scale(0.92); }
+  70%, 100% { opacity: 0; transform: scale(1.12); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-float, .pulse-ring::before { animation: none; }
+}
+
+/* --- Number / badge count-up entrance --- */
+.pop-in {
+  animation: popIn 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* --- Staggered children entrance (add .stagger to a parent) --- */
+.stagger > * {
+  animation: rise 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.stagger > *:nth-child(1) { animation-delay: 0.04s; }
+.stagger > *:nth-child(2) { animation-delay: 0.10s; }
+.stagger > *:nth-child(3) { animation-delay: 0.16s; }
+.stagger > *:nth-child(4) { animation-delay: 0.22s; }
+.stagger > *:nth-child(5) { animation-delay: 0.28s; }
+.stagger > *:nth-child(6) { animation-delay: 0.34s; }
+.stagger > *:nth-child(7) { animation-delay: 0.40s; }
+.stagger > *:nth-child(8) { animation-delay: 0.46s; }
+@media (prefers-reduced-motion: reduce) {
+  .stagger > *, .pop-in { animation: none; }
+}
+
+/* --- Buttons: a touch more life (lift + accent ring on hover) --- */
+.btn-accent:hover {
+  box-shadow: 0 10px 34px -8px var(--glow), 0 0 0 1px color-mix(in srgb, var(--accent) 55%, transparent);
+}
+.btn-outline:hover {
+  box-shadow: 0 8px 24px -14px var(--shadow);
+}
+
+/* --- Scroll-driven section entrance for anything marked [data-rise] --- */
+@supports (animation-timeline: view()) {
+  [data-rise] {
+    animation: riseView linear both;
+    animation-timeline: view();
+    animation-range: entry 0% cover 26%;
+  }
+  @keyframes riseView {
+    from { opacity: 0; transform: translateY(30px) scale(0.985); }
+    to { opacity: 1; transform: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    [data-rise] { animation: none; }
+  }
+}
+
+
+/* =========================================================================
+   FORGE — markdown preview typography
+   ========================================================================= */
+.prose-forge {
+  font-size: 0.9rem;
+  line-height: 1.7;
+  color: var(--fg);
+}
+.prose-forge h1,
+.prose-forge h2,
+.prose-forge h3,
+.prose-forge h4 {
+  font-family: var(--font-display), Georgia, serif;
+  font-weight: 700;
+  line-height: 1.2;
+  margin: 1.1em 0 0.5em;
+}
+.prose-forge h1 { font-size: 1.7rem; }
+.prose-forge h2 { font-size: 1.35rem; }
+.prose-forge h3 { font-size: 1.12rem; }
+.prose-forge p { margin: 0.6em 0; }
+.prose-forge ul { margin: 0.6em 0; padding-inline-start: 1.4em; list-style: disc; }
+.prose-forge li { margin: 0.2em 0; }
+.prose-forge a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+.prose-forge code {
+  font-family: var(--font-mono), monospace;
+  font-size: 0.85em;
+  background: var(--bg-3);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 0.1em 0.4em;
+}
+.prose-forge pre {
+  background: var(--bg-3);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 0.9em 1em;
+  overflow: auto;
+  margin: 0.8em 0;
+}
+.prose-forge pre code { background: none; border: none; padding: 0; }
+.prose-forge blockquote {
+  border-inline-start: 3px solid var(--accent);
+  padding-inline-start: 1em;
+  margin: 0.8em 0;
+  color: var(--fg-2);
+  font-style: italic;
+}
+.prose-forge hr { border: none; border-top: 1px solid var(--line-2); margin: 1.2em 0; }
+.prose-forge img { max-width: 100%; border-radius: 10px; }
+.prose-forge strong { font-weight: 700; }

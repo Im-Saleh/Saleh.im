@@ -934,7 +934,7 @@ export default function MessengerPage() {
             <div className="grid flex-1 place-items-center p-8 text-center">
               <div className="max-w-sm">
                 <div className="mx-auto mb-4 grid h-16 w-16 place-items-center rounded-2xl text-3xl" style={{ background: "var(--bg-2)", border: "1px solid var(--line)", color: "var(--accent)" }}>◆</div>
-                <h2 className="font-display text-2xl">{T.emptyTitle}</h2>
+                <h2 className="font-display gradient-text text-2xl">{T.emptyTitle}</h2>
                 <p className="mt-2 text-[var(--fg-2)]">{T.emptyBody}</p>
               </div>
             </div>

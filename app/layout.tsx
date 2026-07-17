@@ -29,21 +29,67 @@ const vazir = Vazirmatn({
 });
 
 const siteUrl = "https://saleh.im";
+const DESCRIPTION =
+  "Portfolio & resume of Saleh Saghafiani (Saleh). Software engineer crafting fast, elegant products for the web — real-time tools, network utilities and zero-knowledge encrypted apps. Shipping since 2022.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
-  title: "Saleh Saghafiani — Software Engineer",
-  description:
-    "Portfolio & resume of Saleh Saghafiani (Saleh). Software engineer crafting fast, elegant products for the web — real-time tools and encrypted apps. Shipping since 2022.",
-  keywords: ["Saleh Saghafiani", "Saleh", "software engineer", "React", "Next.js", "portfolio", "im-saleh"],
+  title: {
+    default: "Saleh Saghafiani — Software Engineer",
+    template: "%s — Saleh Saghafiani",
+  },
+  description: DESCRIPTION,
+  keywords: [
+    "Saleh Saghafiani",
+    "Saleh",
+    "صالح ثقفیانی",
+    "software engineer",
+    "network engineer",
+    "React",
+    "Next.js",
+    "TypeScript",
+    "portfolio",
+    "resume",
+    "im-saleh",
+    "salehcodez",
+    "encrypted password manager",
+    "end-to-end encrypted messenger",
+  ],
   authors: [{ name: "Saleh Saghafiani", url: "https://github.com/im-saleh" }],
   creator: "Saleh Saghafiani",
+  publisher: "Saleh Saghafiani",
+  category: "technology",
+  alternates: {
+    canonical: siteUrl,
+    languages: { "en-US": siteUrl, "fa-IR": siteUrl },
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
+    },
+  },
   openGraph: {
     title: "Saleh Saghafiani — Software Engineer",
     description: "Software engineer crafting fast, elegant products for the web. Shipping since 2022.",
     url: siteUrl,
     siteName: "saleh.im",
     type: "website",
+    locale: "en_US",
+    alternateLocale: ["fa_IR"],
+    images: [{ url: "/icon.svg", width: 512, height: 512, alt: "Saleh Saghafiani" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Saleh Saghafiani — Software Engineer",
+    description: "Software engineer crafting fast, elegant products for the web. Shipping since 2022.",
+    creator: "@salehcodez",
+    images: ["/icon.svg"],
   },
   icons: {
     icon: `${process.env.NEXT_PUBLIC_BASE_PATH || ""}/favicon.svg`,
@@ -52,6 +98,52 @@ export const metadata: Metadata = {
   manifest: `${process.env.NEXT_PUBLIC_BASE_PATH || ""}/manifest.webmanifest`,
   appleWebApp: { capable: true, title: "Vault", statusBarStyle: "black-translucent" },
   applicationName: "Vault — by Saleh",
+};
+
+/* JSON-LD structured data — Person + WebSite + the suite of apps. Helps search
+   engines and rich results understand who Saleh is and what the site offers. */
+const JSON_LD = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Person",
+      "@id": `${siteUrl}/#person`,
+      name: "Saleh Saghafiani",
+      alternateName: ["Saleh", "صالح ثقفیانی", "im-saleh"],
+      url: siteUrl,
+      jobTitle: "Software & Network Engineer",
+      email: "mailto:salehcodez@gmail.com",
+      sameAs: ["https://github.com/im-saleh"],
+      knowsAbout: [
+        "Software Engineering",
+        "Web Development",
+        "React",
+        "Next.js",
+        "TypeScript",
+        "Cryptography",
+        "Computer Networks",
+      ],
+    },
+    {
+      "@type": "WebSite",
+      "@id": `${siteUrl}/#website`,
+      url: siteUrl,
+      name: "saleh.im",
+      description: DESCRIPTION,
+      inLanguage: ["en", "fa"],
+      publisher: { "@id": `${siteUrl}/#person` },
+    },
+    {
+      "@type": "ItemList",
+      name: "Projects by Saleh Saghafiani",
+      itemListElement: [
+        { "@type": "SoftwareApplication", name: "Vault", applicationCategory: "SecurityApplication", operatingSystem: "Web, Linux", url: `${siteUrl}/vault` },
+        { "@type": "SoftwareApplication", name: "Messenger", applicationCategory: "CommunicationApplication", operatingSystem: "Web", url: `${siteUrl}/messenger` },
+        { "@type": "SoftwareApplication", name: "Probe", applicationCategory: "UtilitiesApplication", operatingSystem: "Web", url: `${siteUrl}/probe` },
+        { "@type": "SoftwareApplication", name: "Lumen", applicationCategory: "BusinessApplication", operatingSystem: "Web", url: `${siteUrl}/lumen` },
+      ].map((item, i) => ({ "@type": "ListItem", position: i + 1, item })),
+    },
+  ],
 };
 
 export const viewport: Viewport = {
@@ -77,6 +169,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <script dangerouslySetInnerHTML={{ __html: NO_FLASH_SCRIPT }} />
         <script dangerouslySetInnerHTML={{ __html: NO_FLASH_LANG }} />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }}
+        />
         <link rel="preconnect" href="https://cdn.jsdelivr.net" crossOrigin="" />
         {FA_FONTS.map((href) => (
           <link key={href} rel="stylesheet" href={href} />

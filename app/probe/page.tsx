@@ -606,7 +606,7 @@ export default function ProbePage() {
 
       <main className="wrap py-6">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <h1 className="font-display text-2xl sm:text-3xl">{T.title}</h1>
+          <h1 className="font-display gradient-text text-2xl sm:text-3xl">{T.title}</h1>
           <div className="flex items-center gap-3 rounded-full border px-4 py-2" style={{ borderColor: "var(--line-2)" }}>
             <span className="label">{T.scoreL}</span>
             <span className="font-display text-2xl" style={{ color: scoreColor }}>
