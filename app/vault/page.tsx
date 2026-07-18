@@ -36,6 +36,7 @@ import { Generator } from "@/components/vault/generator";
 import { EntryEditor } from "@/components/vault/entry-editor";
 import { DetailView } from "@/components/vault/detail-view";
 import { TotpRing } from "@/components/vault/totp-ring";
+import { ImportModal } from "@/components/vault/import-modal";
 
 /* ============================================================================
    Vault — a zero-knowledge, eight-layer-encrypted secret manager. Everything
@@ -74,24 +75,30 @@ export default function VaultPage() {
   const [keyfile, setKeyfile] = useState<Uint8Array | null>(null);
   const [data, setData] = useState<VaultData | null>(null);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
 
   useEffect(() => {
     setPhase(hasVault() ? "locked" : "onboard");
   }, []);
 
-  /* ---- persistence helper ---- */
+  /* ---- persistence helper — never fails silently ---- */
   const persist = useCallback(
     async (next: VaultData) => {
       setData(next);
       if (!pw) return;
       setSaving(true);
+      setSaveError("");
       try {
         await persistVault(pw, next, keyfile);
+        // verify the sealed blob actually landed on disk
+        if (!hasVault()) throw new Error("write-not-persisted");
+      } catch {
+        setSaveError(t.saveFailed);
       } finally {
         setSaving(false);
       }
     },
-    [pw, keyfile]
+    [pw, keyfile, t.saveFailed]
   );
 
   const lock = useCallback(() => {
@@ -156,6 +163,11 @@ export default function VaultPage() {
         </div>
       </header>
 
+      {saveError && (
+        <div className="fixed inset-x-0 top-16 z-50 mx-auto w-fit max-w-[92vw] animate-[fadeIn_.2s_ease] rounded-xl border px-4 py-2.5 text-sm shadow-xl" role="alert" style={{ borderColor: "color-mix(in srgb, #ef4444 45%, transparent)", background: "color-mix(in srgb, #ef4444 14%, var(--bg-2))", color: "#ef4444" }} onClick={() => setSaveError("")}>
+          ⚠ {saveError}
+        </div>
+      )}
       {phase === "loading" && <div className="grid min-h-[70vh] place-items-center text-[var(--fg-2)]">…</div>}
       {phase === "onboard" && <Onboard t={t} fa={fa} onCreated={(p, d, kf) => { setPw(p); setKeyfile(kf); setData(d); setPhase("unlocked"); }} />}
       {phase === "locked" && (
@@ -416,6 +428,7 @@ function VaultApp({
   const [editing, setEditing] = useState<VaultEntry | null>(null);
   const [viewing, setViewing] = useState<VaultEntry | null>(null);
   const [showNewMenu, setShowNewMenu] = useState(false);
+  const [showImport, setShowImport] = useState(false);
   const [mobileNav, setMobileNav] = useState(false);
 
   /* mutations */
@@ -425,6 +438,11 @@ function VaultApp({
     persist({ ...data, entries });
     setEditing(null);
     setViewing(null);
+  };
+  const importEntries = (incoming: VaultEntry[]) => {
+    if (!incoming.length) return;
+    persist({ ...data, entries: [...incoming, ...data.entries] });
+    setShowImport(false);
   };
   const remove = (id: string) => {
     persist({ ...data, entries: data.entries.filter((x) => x.id !== id) });
@@ -574,6 +592,9 @@ function VaultApp({
                 <div className="hidden sm:block">
                   <Segmented value={layout} onChange={(v) => setLayout(v as typeof layout)} options={[{ value: "grid", label: <Icon name="grid" size={15} /> }, { value: "list", label: <Icon name="list" size={15} /> }]} />
                 </div>
+                <button onClick={() => setShowImport(true)} className="btn btn-outline px-3.5 py-2.5 text-sm" title={t.importDetect}>
+                  <Icon name="upload" size={16} /> <span className="hidden md:inline">{t.importDetect}</span>
+                </button>
                 <div className="relative">
                   <button onClick={() => setShowNewMenu((s) => !s)} className="btn btn-accent px-4 py-2.5 text-sm">
                     <Icon name="plus" size={16} /> <span className="hidden sm:inline">{t.newItem}</span>
@@ -595,7 +616,7 @@ function VaultApp({
 
               {/* items */}
               {filtered.length === 0 ? (
-                <EmptyState t={t} onNew={() => startNew("login")} />
+                <EmptyState t={t} onNew={() => startNew("login")} onImport={() => setShowImport(true)} />
               ) : layout === "grid" ? (
                 <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                   {filtered.map((e, i) => (
@@ -614,6 +635,9 @@ function VaultApp({
         </section>
       </div>
 
+      {showImport && (
+        <ImportModal t={t} fa={fa} folders={data.folders} onImport={importEntries} onClose={() => setShowImport(false)} />
+      )}
       {editing && (
         <EntryEditor entry={editing} folders={data.folders} t={t} fa={fa} onSave={upsert} onClose={() => setEditing(null)} onDelete={remove} />
       )}
@@ -719,7 +743,7 @@ function EntryRow({ entry, t, fa, onOpen, onFav }: { entry: VaultEntry; t: Vault
   );
 }
 
-function EmptyState({ t, onNew }: { t: VaultStrings; onNew: () => void }) {
+function EmptyState({ t, onNew, onImport }: { t: VaultStrings; onNew: () => void; onImport?: () => void }) {
   return (
     <div className="panel grid place-items-center gap-3 py-20 text-center">
       <span className="grid h-16 w-16 place-items-center rounded-2xl border" style={{ borderColor: "var(--line-2)", background: "var(--bg-3)" }}>
@@ -727,9 +751,16 @@ function EmptyState({ t, onNew }: { t: VaultStrings; onNew: () => void }) {
       </span>
       <p className="font-display text-lg">{t.empty}</p>
       <p className="max-w-xs text-sm text-[var(--fg-2)]">{t.emptyHint}</p>
-      <button onClick={onNew} className="btn btn-accent mt-2 px-4 py-2 text-sm">
-        <Icon name="plus" size={16} /> {t.newItem}
-      </button>
+      <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
+        <button onClick={onNew} className="btn btn-accent px-4 py-2 text-sm">
+          <Icon name="plus" size={16} /> {t.newItem}
+        </button>
+        {onImport && (
+          <button onClick={onImport} className="btn btn-outline px-4 py-2 text-sm">
+            <Icon name="upload" size={16} /> {t.importDetect}
+          </button>
+        )}
+      </div>
     </div>
   );
 }
