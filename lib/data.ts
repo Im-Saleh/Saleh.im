@@ -502,6 +502,8 @@ export type Certificate = {
   skills: string[];
   /** short glyph shown on the card */
   mark: string;
+  /** proper icon key rendered as an SVG badge */
+  icon: "web" | "js" | "cs" | "frontend" | "network" | "electronics" | "cloud" | "security";
   accent?: boolean;
 };
 
@@ -514,6 +516,7 @@ export const certificates: Certificate[] = [
     url: "https://saleh.im/verify/SLH-RWD-9F3A2C",
     skills: ["HTML", "CSS", "Flexbox", "Grid", "a11y"],
     mark: "◈",
+    icon: "web",
     accent: true,
   },
   {
@@ -524,6 +527,7 @@ export const certificates: Certificate[] = [
     url: "https://saleh.im/verify/SLH-JS-71B4E8",
     skills: ["JavaScript", "Algorithms", "OOP", "Recursion"],
     mark: "λ",
+    icon: "js",
   },
   {
     title: { en: "CS50x — Introduction to Computer Science", fa: "CS50x — مقدمه‌ای بر علوم کامپیوتر" },
@@ -533,6 +537,7 @@ export const certificates: Certificate[] = [
     url: "https://saleh.im/verify/SLH-CS50-D02F19",
     skills: ["C", "Python", "SQL", "Data Structures"],
     mark: "H",
+    icon: "cs",
     accent: true,
   },
   {
@@ -543,6 +548,7 @@ export const certificates: Certificate[] = [
     url: "https://saleh.im/verify/SLH-FE-4AC6B0",
     skills: ["React", "UX", "Version Control", "Testing"],
     mark: "∞",
+    icon: "frontend",
   },
   {
     title: { en: "CCNA: Introduction to Networks", fa: "CCNA: مقدمه‌ای بر شبکه‌ها" },
@@ -552,6 +558,7 @@ export const certificates: Certificate[] = [
     url: "https://saleh.im/verify/SLH-CCNA-8E15D3",
     skills: ["TCP/IP", "Subnetting", "Routing", "Ethernet"],
     mark: "⇄",
+    icon: "network",
     accent: true,
   },
   {
@@ -562,5 +569,6 @@ export const certificates: Certificate[] = [
     url: "https://saleh.im/verify/SLH-ELEC-2B9F7A",
     skills: ["Circuits", "Diodes", "Transistors", "Op-amps"],
     mark: "⚡",
+    icon: "electronics",
   },
 ];

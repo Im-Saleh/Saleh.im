@@ -11,7 +11,6 @@ import {
   hasVault,
   loadMeta,
   createVault,
-  verifyPassword,
   unlockVault,
   persistVault,
   destroyVault,
@@ -71,7 +70,7 @@ export default function VaultPage() {
   const t: VaultStrings = fa ? VAULT_I18N.fa : VAULT_I18N.en;
 
   const [phase, setPhase] = useState<Phase>("loading");
-  const [pw, setPw] = useState("");
+  const [master, setMaster] = useState<Uint8Array | null>(null);
   const [keyfile, setKeyfile] = useState<Uint8Array | null>(null);
   const [data, setData] = useState<VaultData | null>(null);
   const [saving, setSaving] = useState(false);
@@ -85,12 +84,11 @@ export default function VaultPage() {
   const persist = useCallback(
     async (next: VaultData) => {
       setData(next);
-      if (!pw) return;
+      if (!master) return;
       setSaving(true);
       setSaveError("");
       try {
-        await persistVault(pw, next, keyfile);
-        // verify the sealed blob actually landed on disk
+        await persistVault(master, next); // fast: reuses the cached master, no KDF
         if (!hasVault()) throw new Error("write-not-persisted");
       } catch {
         setSaveError(t.saveFailed);
@@ -98,11 +96,11 @@ export default function VaultPage() {
         setSaving(false);
       }
     },
-    [pw, keyfile, t.saveFailed]
+    [master, t.saveFailed]
   );
 
   const lock = useCallback(() => {
-    setPw("");
+    setMaster(null);
     setKeyfile(null);
     setData(null);
     setPhase("locked");
@@ -169,17 +167,17 @@ export default function VaultPage() {
         </div>
       )}
       {phase === "loading" && <div className="grid min-h-[70vh] place-items-center text-[var(--fg-2)]">…</div>}
-      {phase === "onboard" && <Onboard t={t} fa={fa} onCreated={(p, d, kf) => { setPw(p); setKeyfile(kf); setData(d); setPhase("unlocked"); }} />}
+      {phase === "onboard" && <Onboard t={t} fa={fa} onCreated={(m, d, kf) => { setMaster(m); setKeyfile(kf); setData(d); setPhase("unlocked"); }} />}
       {phase === "locked" && (
         <Unlock
           t={t}
           fa={fa}
-          onUnlocked={(p, d, kf) => { setPw(p); setKeyfile(kf); setData(d); setPhase("unlocked"); }}
+          onUnlocked={(m, d, kf) => { setMaster(m); setKeyfile(kf); setData(d); setPhase("unlocked"); }}
           onReset={() => setPhase("onboard")}
         />
       )}
       {phase === "unlocked" && data && (
-        <VaultApp t={t} fa={fa} data={data} pw={pw} keyfile={keyfile} persist={persist} onChangePw={setPw} onWipe={() => { destroyVault(); lock(); setPhase("onboard"); }} />
+        <VaultApp t={t} fa={fa} data={data} keyfile={keyfile} persist={persist} onRekey={setMaster} onRestored={(d, m) => { setMaster(m); setData(d); }} onWipe={() => { destroyVault(); lock(); setPhase("onboard"); }} />
       )}
 
       <VaultStyles />
@@ -196,7 +194,7 @@ async function readFileBytes(file: File): Promise<Uint8Array> {
   return new Uint8Array(buf);
 }
 
-function Onboard({ t, fa, onCreated }: { t: VaultStrings; fa: boolean; onCreated: (pw: string, d: VaultData, kf: Uint8Array | null) => void }) {
+function Onboard({ t, fa, onCreated }: { t: VaultStrings; fa: boolean; onCreated: (master: Uint8Array, d: VaultData, kf: Uint8Array | null) => void }) {
   const [p1, setP1] = useState("");
   const [p2, setP2] = useState("");
   const [hint, setHint] = useState("");
@@ -214,8 +212,8 @@ function Onboard({ t, fa, onCreated }: { t: VaultStrings; fa: boolean; onCreated
     if (strength.score < 2) return setErr(t.tooWeak);
     setBusy(true);
     try {
-      const d = await createVault(p1, hint || undefined, keyfile);
-      onCreated(p1, d, keyfile);
+      const { data: d, master } = await createVault(p1, hint || undefined, keyfile);
+      onCreated(master, d, keyfile);
     } catch (e) {
       setErr(String((e as Error).message || e));
     } finally {
@@ -298,7 +296,7 @@ function Onboard({ t, fa, onCreated }: { t: VaultStrings; fa: boolean; onCreated
    UNLOCK
    ========================================================================== */
 
-function Unlock({ t, fa, onUnlocked, onReset }: { t: VaultStrings; fa: boolean; onUnlocked: (pw: string, d: VaultData, kf: Uint8Array | null) => void; onReset: () => void }) {
+function Unlock({ t, fa, onUnlocked, onReset }: { t: VaultStrings; fa: boolean; onUnlocked: (master: Uint8Array, d: VaultData, kf: Uint8Array | null) => void; onReset: () => void }) {
   const [pw, setPw] = useState("");
   const [reveal, setReveal] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -315,14 +313,9 @@ function Unlock({ t, fa, onUnlocked, onReset }: { t: VaultStrings; fa: boolean; 
     if (needsKeyfile && !keyfile) return setErr(t.needKeyfile);
     setBusy(true);
     try {
-      const ok = await verifyPassword(pw, keyfile);
-      if (!ok) {
-        setErr(t.wrong);
-        setBusy(false);
-        return;
-      }
-      const d = await unlockVault(pw, keyfile);
-      onUnlocked(pw, d, keyfile);
+      // one heavy derivation: unlockVault throws VaultAuthError on a wrong password
+      const { data: d, master } = await unlockVault(pw, keyfile);
+      onUnlocked(master, d, keyfile);
     } catch {
       setErr(t.wrong);
       setBusy(false);
@@ -406,19 +399,19 @@ function VaultApp({
   t,
   fa,
   data,
-  pw,
   keyfile,
   persist,
-  onChangePw,
+  onRekey,
+  onRestored,
   onWipe,
 }: {
   t: VaultStrings;
   fa: boolean;
   data: VaultData;
-  pw: string;
   keyfile: Uint8Array | null;
   persist: (d: VaultData) => Promise<void>;
-  onChangePw: (p: string) => void;
+  onRekey: (master: Uint8Array) => void;
+  onRestored: (d: VaultData, master: Uint8Array) => void;
   onWipe: () => void;
 }) {
   const [nav, setNav] = useState<Nav>({ kind: "filter", value: "all" });
@@ -556,7 +549,7 @@ function VaultApp({
 
           {nav.kind === "view" && nav.value === "settings" && (
             <div className="tab-anim">
-              <Settings t={t} fa={fa} data={data} pw={pw} keyfile={keyfile} persist={persist} onChangePw={onChangePw} onWipe={onWipe} onImported={(d) => { persist(d); }} />
+              <Settings t={t} fa={fa} data={data} keyfile={keyfile} persist={persist} onRekey={onRekey} onRestored={onRestored} onWipe={onWipe} />
             </div>
           )}
 
@@ -870,22 +863,20 @@ function Settings({
   t,
   fa,
   data,
-  pw,
   keyfile,
   persist,
-  onChangePw,
+  onRekey,
+  onRestored,
   onWipe,
-  onImported,
 }: {
   t: VaultStrings;
   fa: boolean;
   data: VaultData;
-  pw: string;
   keyfile: Uint8Array | null;
   persist: (d: VaultData) => Promise<void>;
-  onChangePw: (p: string) => void;
+  onRekey: (master: Uint8Array) => void;
+  onRestored: (d: VaultData, master: Uint8Array) => void;
   onWipe: () => void;
-  onImported: (d: VaultData) => void;
 }) {
   const [cur, setCur] = useState("");
   const [next, setNext] = useState("");
@@ -910,8 +901,8 @@ function Settings({
     setMsg("");
     if (analyzeStrength(next).score < 2) return setMsg(t.tooWeak);
     try {
-      await changeMasterPassword(cur, next, undefined, keyfile, keyfile);
-      onChangePw(next);
+      const master = await changeMasterPassword(cur, next, undefined, keyfile, keyfile);
+      onRekey(master);
       setCur("");
       setNext("");
       setMsg(fa ? "رمز اصلی تغییر کرد." : "Master password changed.");
@@ -937,9 +928,8 @@ function Settings({
       const pass = prompt(fa ? "رمزِ اصلیِ این پشتیبان را وارد کن:" : "Enter the master password for this backup:");
       if (!pass) return;
       try {
-        const d = await importBackup(String(reader.result), pass, keyfile);
-        onChangePw(pass);
-        onImported(d);
+        const { data: d, master } = await importBackup(String(reader.result), pass, keyfile);
+        onRestored(d, master);
         setMsg(fa ? "پشتیبان بازیابی شد." : "Backup restored.");
       } catch {
         setMsg(fa ? "پشتیبان یا رمز نامعتبر است." : "Invalid backup or password.");

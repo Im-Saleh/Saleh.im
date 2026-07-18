@@ -7,7 +7,6 @@
    ========================================================================== */
 
 import {
-  seal,
   open,
   passwordVerifier,
   analyzeStrength,
@@ -15,10 +14,18 @@ import {
   randomBytes,
   bytesToB64,
   b64ToBytes,
-  DEFAULT_KDF_ITERATIONS,
+  deriveMasterV2,
+  sealWithMaster,
+  openWithMaster,
+  verifierFromMaster,
+  KDF_ITERATIONS_V2,
+  VaultAuthError,
   type VaultContainer,
   isVaultContainer,
 } from "./crypto";
+
+/** The decrypted vault plus the cached 512-bit master used for fast re-seals. */
+export type UnlockResult = { data: VaultData; master: Uint8Array };
 
 export type EntryType = "login" | "note" | "card" | "identity" | "totp";
 
@@ -175,13 +182,21 @@ export function emptyVault(): VaultData {
   };
 }
 
-export async function createVault(password: string, hint?: string, keyfile?: Uint8Array | null): Promise<VaultData> {
-  const salt = randomBytes(16);
-  const iterations = DEFAULT_KDF_ITERATIONS;
-  const verifier = await passwordVerifier(password, salt, iterations, keyfile);
+function normalize(data: VaultData): VaultData {
+  if (!data.folders) data.folders = [...DEFAULT_FOLDERS];
+  if (!data.settings) data.settings = { ...DEFAULT_SETTINGS };
+  if (!data.entries) data.entries = [];
+  return data;
+}
+
+export async function createVault(password: string, hint?: string, keyfile?: Uint8Array | null): Promise<UnlockResult> {
+  const kdfSalt = randomBytes(16);
+  const iterations = KDF_ITERATIONS_V2;
+  const master = await deriveMasterV2(password, kdfSalt, iterations, keyfile); // heavy — once
+  const verifier = await verifierFromMaster(master, kdfSalt);
   const meta: VaultMeta = {
-    version: 1,
-    salt: bytesToB64(salt),
+    version: 2,
+    salt: bytesToB64(kdfSalt),
     iterations,
     verifier,
     createdAt: Date.now(),
@@ -189,36 +204,59 @@ export async function createVault(password: string, hint?: string, keyfile?: Uin
     keyfile: !!(keyfile && keyfile.length),
   };
   const data = emptyVault();
-  const container = await seal(password, JSON.stringify(data), iterations, keyfile);
+  const container = await sealWithMaster(master, JSON.stringify(data), iterations, kdfSalt);
   safeSet(KEY_META, JSON.stringify(meta));
   safeSet(KEY_BLOB, JSON.stringify(container));
-  return data;
+  return { data, master };
 }
 
 /** Fast, pre-decrypt password check via the verifier hash. */
 export async function verifyPassword(password: string, keyfile?: Uint8Array | null): Promise<boolean> {
   const meta = loadMeta();
   if (!meta) return false;
+  if (meta.version >= 2) {
+    const kdfSalt = b64ToBytes(meta.salt);
+    const master = await deriveMasterV2(password, kdfSalt, meta.iterations, keyfile);
+    return (await verifierFromMaster(master, kdfSalt)) === meta.verifier;
+  }
   const v = await passwordVerifier(password, b64ToBytes(meta.salt), meta.iterations, keyfile);
   return v === meta.verifier;
 }
 
-export async function unlockVault(password: string, keyfile?: Uint8Array | null): Promise<VaultData> {
+export async function unlockVault(password: string, keyfile?: Uint8Array | null): Promise<UnlockResult> {
   const container = loadContainer();
-  if (!container) throw new Error("No vault found on this device.");
-  const json = await open(password, container, keyfile);
-  const data = JSON.parse(json) as VaultData;
-  // defensive migration
-  if (!data.folders) data.folders = [...DEFAULT_FOLDERS];
-  if (!data.settings) data.settings = { ...DEFAULT_SETTINGS };
-  if (!data.entries) data.entries = [];
-  return data;
+  const meta = loadMeta();
+  if (!container || !meta) throw new Error("No vault found on this device.");
+
+  // v2 — derive the heavy master once, verify, then decrypt with it (cached).
+  if (meta.version >= 2 && (container.v || 1) >= 2 && container.kdfSalt) {
+    const kdfSalt = b64ToBytes(meta.salt);
+    const master = await deriveMasterV2(password, kdfSalt, meta.iterations, keyfile);
+    if ((await verifierFromMaster(master, kdfSalt)) !== meta.verifier) throw new VaultAuthError();
+    const data = normalize(JSON.parse(await openWithMaster(master, container)) as VaultData);
+    return { data, master };
+  }
+
+  // v1 — decrypt with the legacy password path, then transparently upgrade to v2.
+  const data = normalize(JSON.parse(await open(password, container, keyfile)) as VaultData);
+  const kdfSalt = randomBytes(16);
+  const iterations = KDF_ITERATIONS_V2;
+  const master = await deriveMasterV2(password, kdfSalt, iterations, keyfile);
+  const upgraded: VaultMeta = {
+    version: 2, salt: bytesToB64(kdfSalt), iterations,
+    verifier: await verifierFromMaster(master, kdfSalt),
+    createdAt: meta.createdAt ?? Date.now(), hint: meta.hint, keyfile: !!(keyfile && keyfile.length),
+  };
+  safeSet(KEY_META, JSON.stringify(upgraded));
+  safeSet(KEY_BLOB, JSON.stringify(await sealWithMaster(master, JSON.stringify(data), iterations, kdfSalt)));
+  return { data, master };
 }
 
-export async function persistVault(password: string, data: VaultData, keyfile?: Uint8Array | null): Promise<void> {
+/** The fast per-save path — reuses the cached master, no KDF (≈ a few ms). */
+export async function persistVault(master: Uint8Array, data: VaultData): Promise<void> {
   const meta = loadMeta();
-  const iterations = meta?.iterations ?? DEFAULT_KDF_ITERATIONS;
-  const container = await seal(password, JSON.stringify(data), iterations, keyfile);
+  if (!meta) throw new Error("No vault metadata on this device.");
+  const container = await sealWithMaster(master, JSON.stringify(data), meta.iterations, b64ToBytes(meta.salt));
   safeSet(KEY_BLOB, JSON.stringify(container));
 }
 
@@ -234,25 +272,24 @@ export async function changeMasterPassword(
   hint?: string,
   oldKeyfile?: Uint8Array | null,
   newKeyfile?: Uint8Array | null
-): Promise<void> {
-  const data = await unlockVault(oldPassword, oldKeyfile);
-  const salt = randomBytes(16);
-  const iterations = DEFAULT_KDF_ITERATIONS;
-  // if a new keyfile isn't explicitly provided, keep the existing factor
+): Promise<Uint8Array> {
+  const { data } = await unlockVault(oldPassword, oldKeyfile); // validates the old password
   const kf = newKeyfile !== undefined ? newKeyfile : oldKeyfile;
-  const verifier = await passwordVerifier(newPassword, salt, iterations, kf);
+  const kdfSalt = randomBytes(16);
+  const iterations = KDF_ITERATIONS_V2;
+  const master = await deriveMasterV2(newPassword, kdfSalt, iterations, kf);
   const meta: VaultMeta = {
-    version: 1,
-    salt: bytesToB64(salt),
+    version: 2,
+    salt: bytesToB64(kdfSalt),
     iterations,
-    verifier,
+    verifier: await verifierFromMaster(master, kdfSalt),
     createdAt: loadMeta()?.createdAt ?? Date.now(),
     hint: hint ?? loadMeta()?.hint,
     keyfile: !!(kf && kf.length),
   };
-  const container = await seal(newPassword, JSON.stringify(data), iterations, kf);
   safeSet(KEY_META, JSON.stringify(meta));
-  safeSet(KEY_BLOB, JSON.stringify(container));
+  safeSet(KEY_BLOB, JSON.stringify(await sealWithMaster(master, JSON.stringify(data), iterations, kdfSalt)));
+  return master;
 }
 
 /* --------------------------------------------------------------------------
@@ -269,14 +306,15 @@ export function exportBackup(): string | null {
   return JSON.stringify(backup, null, 2);
 }
 
-export async function importBackup(json: string, password: string, keyfile?: Uint8Array | null): Promise<VaultData> {
+export async function importBackup(json: string, password: string, keyfile?: Uint8Array | null): Promise<UnlockResult> {
   const backup = JSON.parse(json) as Backup;
   if (!backup.meta || !backup.container) throw new Error("Not a valid Vault backup.");
-  // validate password against imported container before committing
-  const data = JSON.parse(await open(password, backup.container, keyfile)) as VaultData;
+  // validate the password against the imported container before committing
+  await open(password, backup.container, keyfile);
   safeSet(KEY_META, JSON.stringify(backup.meta));
   safeSet(KEY_BLOB, JSON.stringify(backup.container));
-  return data;
+  // unlock re-derives the cached master and upgrades a v1 backup to v2 in place
+  return unlockVault(password, keyfile);
 }
 
 /* --------------------------------------------------------------------------

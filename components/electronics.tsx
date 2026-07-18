@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { Reveal } from "./reveal";
-import { electronics, pick } from "@/lib/data";
+import { electronics, pick, type ElectronicsSkill } from "@/lib/data";
 import { useLang } from "./lang-provider";
 
 /* The heavy WebGL scene is code-split and only fetched when the board scrolls
@@ -11,7 +11,7 @@ import { useLang } from "./lang-provider";
 const PcbScene = dynamic(() => import("./pcb-scene"), { ssr: false });
 
 function SkillIcon({ name }: { name: string }) {
-  const common = { width: 18, height: 18, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.7, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
+  const common = { width: 20, height: 20, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.7, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
   switch (name) {
     case "pcb":
       return (<svg {...common}><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8" cy="8" r="1.3" /><circle cx="16" cy="16" r="1.3" /><path d="M8 9.3V13h4M16 14.7V11h-4" /></svg>);
@@ -27,9 +27,6 @@ function SkillIcon({ name }: { name: string }) {
 export function Electronics() {
   const { t, lang } = useLang();
 
-  const faDigit = (n: number | string) =>
-    lang === "fa" ? String(n).replace(/\d/g, (d) => "۰۱۲۳۴۵۶۷۸۹"[+d]) : String(n);
-
   return (
     <section id="electronics" className="cv-section relative scroll-mt-24 overflow-hidden py-24 sm:py-32">
       <span className="section-index pointer-events-none absolute end-2 top-10 select-none sm:end-6" aria-hidden>03</span>
@@ -37,14 +34,14 @@ export function Electronics() {
 
       <div className="wrap relative">
         <div className="grid items-center gap-12 lg:grid-cols-2 lg:gap-16">
-          {/* ---- Left: copy + honest skill meters ---- */}
+          {/* ---- Left: copy + interactive skill cards ---- */}
           <div>
             <Reveal>
               <p className="label">{t.electronics.eyebrow}</p>
               <h2 className="display mt-3 text-5xl sm:text-6xl">
                 {t.electronics.heading1}
                 <br />
-                <span className="display-italic gradient-text">{t.electronics.heading2}</span>
+                <span className="display-italic gradient-text gradient-text-anim">{t.electronics.heading2}</span>
               </h2>
               <p className="mt-6 max-w-md leading-relaxed text-[var(--fg-2)]">{t.electronics.sub}</p>
               <p className="fa-quote mt-4 max-w-md text-sm italic text-[var(--fg-2)]">{pick(electronics.note, lang)}</p>
@@ -53,23 +50,7 @@ export function Electronics() {
             <div className="mt-10 grid gap-4">
               {electronics.skills.map((s, i) => (
                 <Reveal key={s.name.en} delay={i * 70}>
-                  <div className="card-lift sheen glow-border group relative overflow-hidden p-4 sm:p-5">
-                    <div className="flex items-center gap-3">
-                      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border transition-colors group-hover:text-[var(--accent)]" style={{ borderColor: "var(--line-2)", color: "var(--fg-2)", background: "var(--bg-3)" }}>
-                        <SkillIcon name={s.icon} />
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-baseline justify-between gap-3">
-                          <span className="font-display text-lg leading-tight">{pick(s.name, lang)}</span>
-                          <span className="mono text-xs force-ltr" style={{ color: "var(--accent)" }}>{faDigit(s.level)}%</span>
-                        </div>
-                        <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full" style={{ background: "var(--bg-3)" }}>
-                          <MeterBar level={s.level} />
-                        </div>
-                      </div>
-                    </div>
-                    <p className="mt-3 text-sm leading-relaxed text-[var(--fg-2)]">{pick(s.blurb, lang)}</p>
-                  </div>
+                  <SkillCard s={s} lang={lang} />
                 </Reveal>
               ))}
             </div>
@@ -85,6 +66,90 @@ export function Electronics() {
   );
 }
 
+/* An interactive skill card: cursor spotlight + 3D tilt + count-up percentage. */
+function SkillCard({ s, lang }: { s: ElectronicsSkill; lang: "en" | "fa" }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const raf = useRef(0);
+  const pending = useRef<{ rx: number; ry: number; mx: number; my: number } | null>(null);
+
+  const faDigit = (n: number | string) =>
+    lang === "fa" ? String(n).replace(/\d/g, (d) => "۰۱۲۳۴۵۶۷۸۹"[+d]) : String(n);
+
+  const apply = () => {
+    raf.current = 0;
+    const el = ref.current, p = pending.current;
+    if (!el || !p) return;
+    el.style.setProperty("--rx", `${p.rx.toFixed(2)}deg`);
+    el.style.setProperty("--ry", `${p.ry.toFixed(2)}deg`);
+    el.style.setProperty("--mx", `${p.mx.toFixed(1)}%`);
+    el.style.setProperty("--my", `${p.my.toFixed(1)}%`);
+  };
+  const onMove = (e: React.PointerEvent) => {
+    const el = ref.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const px = (e.clientX - r.left) / r.width, py = (e.clientY - r.top) / r.height;
+    pending.current = { rx: (0.5 - py) * 7, ry: (px - 0.5) * 9, mx: px * 100, my: py * 100 };
+    if (!raf.current) raf.current = requestAnimationFrame(apply);
+  };
+  const onLeave = () => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.setProperty("--rx", "0deg");
+    el.style.setProperty("--ry", "0deg");
+  };
+  useEffect(() => () => cancelAnimationFrame(raf.current), []);
+
+  // count the percentage up from 0 once the card scrolls into view
+  const [pct, setPct] = useState(0);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof IntersectionObserver === "undefined") { setPct(s.level); return; }
+    let r = 0;
+    const io = new IntersectionObserver(([e]) => {
+      if (!e.isIntersecting) return;
+      io.disconnect();
+      const start = performance.now(), dur = 1300;
+      const step = (now: number) => {
+        const p = Math.min(1, (now - start) / dur);
+        setPct(Math.round(s.level * (1 - Math.pow(1 - p, 3))));
+        if (p < 1) r = requestAnimationFrame(step);
+      };
+      r = requestAnimationFrame(step);
+    }, { threshold: 0.5 });
+    io.observe(el);
+    return () => { io.disconnect(); cancelAnimationFrame(r); };
+  }, [s.level]);
+
+  return (
+    <div
+      ref={ref}
+      onPointerMove={onMove}
+      onPointerLeave={onLeave}
+      className="skill-card group relative overflow-hidden rounded-2xl border p-4 sm:p-5"
+      style={{ borderColor: "var(--line-2)", background: "var(--bg-2)" }}
+    >
+      <div className="skill-tilt relative z-[1]">
+        <div className="flex items-center gap-3">
+          <span className="skill-icon grid h-11 w-11 shrink-0 place-items-center rounded-xl border" style={{ borderColor: "var(--line-2)", color: "var(--fg-2)", background: "var(--bg-3)" }}>
+            <SkillIcon name={s.icon} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-baseline justify-between gap-3">
+              <span className="skill-title font-display text-lg leading-tight">{pick(s.name, lang)}</span>
+              <span className="pct mono text-base font-semibold force-ltr">{faDigit(pct)}%</span>
+            </div>
+            <div className="mt-2 h-2 w-full overflow-hidden rounded-full" style={{ background: "var(--bg-3)", boxShadow: "inset 0 1px 2px rgba(0,0,0,0.3)" }}>
+              <MeterBar level={s.level} />
+            </div>
+          </div>
+        </div>
+        <p className="mt-3 text-sm leading-relaxed text-[var(--fg-2)]">{pick(s.blurb, lang)}</p>
+      </div>
+    </div>
+  );
+}
+
 /* Dark "product stage" that lazily mounts the WebGL board once it's near the
    viewport, with a graceful fallback when WebGL/motion isn't available. */
 function PcbStage({ hint, badge }: { hint: string; badge: string }) {
@@ -93,7 +158,6 @@ function PcbStage({ hint, badge }: { hint: string; badge: string }) {
   const [ok, setOk] = useState(true);
 
   useEffect(() => {
-    // reduced motion or no WebGL → keep the static stage
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     let webgl = false;
     try {
@@ -114,24 +178,17 @@ function PcbStage({ hint, badge }: { hint: string; badge: string }) {
 
   return (
     <div className="relative">
-      <div
-        ref={ref}
-        className="pcb-viewport relative aspect-[5/4] w-full overflow-hidden rounded-[26px]"
-      >
+      <div ref={ref} className="pcb-viewport relative aspect-[5/4] w-full overflow-hidden rounded-[26px]">
         {mount && ok ? (
           <PcbScene />
         ) : (
-          // static fallback stage (also the pre-mount poster)
           <div className="absolute inset-0 grid place-items-center">
             <div className="pcb-poster" aria-hidden />
             <span className="relative mono text-xs tracking-widest text-white/50">{ok ? "· loading 3D ·" : "PCB"}</span>
           </div>
         )}
-
-        {/* framing overlays */}
         <div className="pointer-events-none absolute inset-0 rounded-[26px] ring-1 ring-inset ring-white/10" aria-hidden />
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 rounded-b-[26px] bg-gradient-to-t from-black/50 to-transparent" aria-hidden />
-
         <div className="pointer-events-none absolute bottom-3 start-4 flex items-center gap-2">
           <span className="grid h-6 w-6 place-items-center rounded-full bg-white/10 text-[11px] text-white/80 backdrop-blur">↻</span>
           <span className="mono text-[11px] text-white/70">{hint}</span>
@@ -157,13 +214,15 @@ function MeterBar({ level }: { level: number }) {
   return (
     <span
       ref={ref}
-      className="block h-full rounded-full"
+      className="meter-fill block h-full rounded-full"
       style={{
         width: on ? `${level}%` : "0%",
         background: "linear-gradient(90deg, var(--accent), var(--accent-2))",
-        boxShadow: "0 0 10px var(--glow)",
-        transition: "width 1.1s cubic-bezier(0.22,1,0.36,1)",
+        boxShadow: "0 0 12px var(--glow)",
+        transition: "width 1.2s cubic-bezier(0.22,1,0.36,1)",
       }}
     />
   );
 }
+
+

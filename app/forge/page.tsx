@@ -2,8 +2,18 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { TOOLS, CATEGORIES } from "./tools";
+import { TOOLS, CATEGORIES, type ToolDef } from "./tools";
+import { NETSEC_TOOLS, NETSEC_CATEGORIES } from "./netsec-tools";
 import { ThemePicker } from "@/components/theme-picker";
+
+/* Merge the base toolbox with the network/security toolset (dedup by id). */
+const ALL_TOOLS: ToolDef[] = (() => {
+  const seen = new Set<string>();
+  const out: ToolDef[] = [];
+  for (const t of [...TOOLS, ...NETSEC_TOOLS]) { if (!seen.has(t.id)) { seen.add(t.id); out.push(t); } }
+  return out;
+})();
+const ALL_CATEGORIES = [...CATEGORIES, ...NETSEC_CATEGORIES.filter((c) => !CATEGORIES.includes(c))];
 
 const CAT_COLOR: Record<string, string> = {
   Data: "#38bdf8",
@@ -13,10 +23,12 @@ const CAT_COLOR: Record<string, string> = {
   Text: "#f472b6",
   CSS: "#22d3ee",
   Web: "#fb7185",
+  Network: "#2dd4bf",
+  Security: "#f43f5e",
 };
 
 export default function ForgePage() {
-  const [activeId, setActiveId] = useState(TOOLS[0].id);
+  const [activeId, setActiveId] = useState(ALL_TOOLS[0].id);
   const [query, setQuery] = useState("");
   const [navOpen, setNavOpen] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -24,7 +36,7 @@ export default function ForgePage() {
   // deep-link the active tool via the URL hash
   useEffect(() => {
     const h = decodeURIComponent(location.hash.slice(1));
-    if (TOOLS.some((t) => t.id === h)) setActiveId(h);
+    if (ALL_TOOLS.some((t) => t.id === h)) setActiveId(h);
   }, []);
   useEffect(() => {
     history.replaceState(null, "", `#${activeId}`);
@@ -45,11 +57,11 @@ export default function ForgePage() {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return TOOLS;
-    return TOOLS.filter((t) => (t.name + " " + t.keywords + " " + t.category).toLowerCase().includes(q));
+    if (!q) return ALL_TOOLS;
+    return ALL_TOOLS.filter((t) => (t.name + " " + t.keywords + " " + t.category).toLowerCase().includes(q));
   }, [query]);
 
-  const active = TOOLS.find((t) => t.id === activeId) ?? TOOLS[0];
+  const active = ALL_TOOLS.find((t) => t.id === activeId) ?? ALL_TOOLS[0];
   const Active = active.render;
 
   return (
@@ -72,7 +84,7 @@ export default function ForgePage() {
           <div className="flex items-center gap-2">
             <span className="grid h-7 w-7 place-items-center rounded-lg text-sm font-bold" style={{ background: "var(--accent)", color: "var(--on-accent)" }}>⚒</span>
             <span className="font-display text-lg font-semibold">Forge</span>
-            <span className="chip hidden sm:inline">{TOOLS.length} tools</span>
+            <span className="chip hidden sm:inline">{ALL_TOOLS.length} tools</span>
           </div>
           <div className="ms-auto flex items-center gap-2">
             <button onClick={() => setNavOpen((v) => !v)} className="btn btn-outline px-3 py-2 text-xs lg:hidden">☰ Tools</button>
@@ -99,7 +111,7 @@ export default function ForgePage() {
             </div>
 
             <nav className="thin-scroll max-h-[calc(100vh-9rem)] overflow-auto pr-1">
-              {CATEGORIES.map((cat) => {
+              {ALL_CATEGORIES.map((cat) => {
                 const items = filtered.filter((t) => t.category === cat);
                 if (items.length === 0) return null;
                 return (

@@ -1636,3 +1636,132 @@ a:hover > .logo-mark,
   .holo-card::before, .gradient-text-anim, .cred-sheen { animation: none; }
   .cert-tilt { transition: none; }
 }
+
+
+/* =========================================================================
+   SKILL CARDS v2 — interactive tilt, cursor spotlight, animated meter sweep,
+   count-up percentage glow, floating icon. Used by the Electronics section.
+   ========================================================================= */
+.skill-card {
+  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.45s ease, border-color 0.4s ease;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 12px 30px -24px var(--shadow);
+  will-change: transform;
+}
+.skill-card:hover {
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.08) inset, 0 34px 66px -30px var(--shadow),
+    0 0 42px -12px var(--glow);
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--line)) !important;
+}
+/* rotating gradient edge, revealed on hover */
+.skill-card::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1.4px;
+  background: conic-gradient(from var(--holo, 0deg), transparent 0 55%, var(--accent) 70%, var(--accent-2) 82%, transparent 92%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  pointer-events: none;
+}
+.skill-card:hover::before { opacity: 1; animation: holoSpin 3s linear infinite; }
+/* cursor spotlight */
+.skill-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(240px circle at var(--mx, 50%) var(--my, 0%), color-mix(in srgb, var(--accent) 18%, transparent), transparent 46%);
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  pointer-events: none;
+}
+.skill-card:hover::after { opacity: 1; }
+
+.skill-tilt {
+  --rx: 0deg;
+  --ry: 0deg;
+  transform: perspective(820px) rotateX(var(--rx)) rotateY(var(--ry));
+  transform-style: preserve-3d;
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.skill-icon {
+  transition: transform 0.55s cubic-bezier(0.16, 1, 0.3, 1), color 0.3s, box-shadow 0.4s;
+}
+.skill-card:hover .skill-icon {
+  transform: translateZ(34px) rotate(-8deg) scale(1.1);
+  box-shadow: 0 12px 24px -10px var(--glow);
+  color: var(--accent) !important;
+}
+.skill-title { transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1); }
+.skill-card:hover .skill-title { transform: translateZ(22px); }
+
+/* animated light sweep over the progress bar */
+.meter-fill { position: relative; overflow: hidden; }
+.meter-fill::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), transparent);
+  transform: translateX(-140%);
+  animation: meterSweep 2.6s ease-in-out infinite;
+}
+@keyframes meterSweep { 0% { transform: translateX(-140%); } 55%, 100% { transform: translateX(260%); } }
+
+/* percentage number — glowing, gradient, subtle pop */
+.pct {
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: 0 0 18px var(--glow);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skill-card::before, .meter-fill::after { animation: none; }
+  .skill-tilt, .skill-icon, .skill-title { transition: none; }
+}
+
+
+/* =========================================================================
+   CERTIFICATE badge (icon tile) + verify button
+   ========================================================================= */
+.cert-badge {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 30% 22%, color-mix(in srgb, currentColor 30%, transparent), transparent 62%),
+    var(--bg-3);
+  border: 1px solid color-mix(in srgb, currentColor 24%, var(--line-2));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 12px 24px -16px currentColor;
+  transition: transform 0.55s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.4s ease;
+}
+.cert-badge::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(120deg, transparent 42%, rgba(255, 255, 255, 0.45) 50%, transparent 58%);
+  transform: translateX(-130%);
+  transition: transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.cert-card:hover .cert-badge {
+  transform: translateZ(30px) scale(1.07) rotate(-6deg);
+  box-shadow: 0 18px 34px -12px currentColor;
+}
+.cert-card:hover .cert-badge::after { transform: translateX(130%); }
+
+.cert-verify-btn {
+  transition: background 0.35s ease, color 0.35s ease, border-color 0.35s ease, transform 0.3s ease, box-shadow 0.35s ease;
+}
+.cert-verify-btn:hover {
+  background: var(--accent);
+  color: var(--on-accent) !important;
+  border-color: var(--accent) !important;
+  transform: translateY(-1px);
+  box-shadow: 0 12px 26px -10px var(--glow);
+}

@@ -16,6 +16,7 @@ import * as THREE from "three";
 import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
+import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 
 function readAccent(): { accent: THREE.Color; accent2: THREE.Color } {
   const css = getComputedStyle(document.documentElement);
@@ -67,6 +68,13 @@ export default function PcbScene() {
     // soft radial vignette floor colour
     scene.fog = new THREE.Fog("#080b11", 18, 34);
 
+    // real image-based lighting → believable metal/plastic reflections
+    let pmrem: THREE.PMREMGenerator | null = null;
+    try {
+      pmrem = new THREE.PMREMGenerator(renderer);
+      scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.03).texture;
+    } catch { pmrem = null; }
+
     const camera = new THREE.PerspectiveCamera(38, width / height, 0.1, 100);
     camera.position.set(0, 6.6, 10.5);
     camera.lookAt(0, 0, 0);
@@ -78,7 +86,7 @@ export default function PcbScene() {
     const key = new THREE.DirectionalLight(0xffffff, 2.1);
     key.position.set(6, 12, 7);
     key.castShadow = true;
-    key.shadow.mapSize.set(1024, 1024);
+    key.shadow.mapSize.set(2048, 2048);
     key.shadow.camera.near = 1;
     key.shadow.camera.far = 40;
     key.shadow.camera.left = -10;
@@ -243,6 +251,48 @@ export default function PcbScene() {
     ledGlow.position.copy(led.position);
     board.add(ledGlow);
 
+    // metal-can crystal oscillator (reflective, catches the environment)
+    const xtal = new THREE.Mesh(
+      track(new THREE.CapsuleGeometry(0.28, 0.7, 6, 16)),
+      track(new THREE.MeshStandardMaterial({ color: new THREE.Color("#b8c0c8"), roughness: 0.18, metalness: 1 }))
+    );
+    xtal.rotation.z = Math.PI / 2;
+    xtal.position.set(-2.8, top + 0.28, -1.7);
+    xtal.castShadow = true;
+    board.add(xtal);
+
+    // a smaller secondary QFN chip
+    const chip2 = new THREE.Mesh(track(new THREE.BoxGeometry(1.1, 0.26, 1.1)), darkMat);
+    chip2.position.set(-3.1, top + 0.13, 0.4);
+    chip2.castShadow = true;
+    board.add(chip2);
+    for (let i = -2; i <= 2; i++) {
+      for (const sgn of [-1, 1]) {
+        const pin = new THREE.Mesh(track(new THREE.BoxGeometry(0.08, 0.04, 0.16)), silverMat);
+        pin.position.set(-3.1 + i * 0.2, top + 0.02, 0.4 + sgn * 0.62);
+        board.add(pin);
+      }
+    }
+
+    // mounting holes (plated) at the corners
+    for (const [x, z] of [[-BW / 2 + 0.55, -BD / 2 + 0.55], [BW / 2 - 0.55, -BD / 2 + 0.55], [-BW / 2 + 0.55, BD / 2 - 0.55], [BW / 2 - 0.55, BD / 2 - 0.55]] as [number, number][]) {
+      const ring = new THREE.Mesh(track(new THREE.TorusGeometry(0.22, 0.07, 10, 20)), goldMat);
+      ring.rotation.x = Math.PI / 2;
+      ring.position.set(x, top, z);
+      board.add(ring);
+      const hole = new THREE.Mesh(track(new THREE.CylinderGeometry(0.15, 0.15, BH + 0.1, 16)), track(new THREE.MeshStandardMaterial({ color: new THREE.Color("#05070a"), roughness: 0.9 })));
+      hole.position.set(x, BH / 2, z);
+      board.add(hole);
+    }
+
+    // a couple of extra SMD caps near the SoC for density
+    for (const [x, z] of [[-1.0, -1.6], [1.0, 1.5], [0.6, -1.7]] as [number, number][]) {
+      const c = new THREE.Mesh(track(new THREE.BoxGeometry(0.3, 0.16, 0.5)), track(new THREE.MeshStandardMaterial({ color: new THREE.Color("#2a3038"), roughness: 0.4, metalness: 0.5 })));
+      c.position.set(x, top + 0.08, z);
+      c.castShadow = true;
+      board.add(c);
+    }
+
     /* ---- traveling signal pulses on the copper ---- */
     const pulseMat = track(new THREE.MeshBasicMaterial({ color: accent2 }));
     type Pulse = { mesh: THREE.Mesh; route: THREE.Vector3[]; t: number; speed: number };
@@ -327,11 +377,23 @@ export default function PcbScene() {
     let running = true;
     const tmp = new THREE.Vector3();
 
+    // cinematic intro: ease the camera in from a wider, lower angle
+    const camStart = new THREE.Vector3(0.5, 3.0, 15.5);
+    const camEnd = new THREE.Vector3(0, 6.6, 10.5);
+    let intro = 0;
+
     const loop = () => {
       raf = requestAnimationFrame(loop);
       if (!running) return;
       const dt = Math.min(clock.getDelta(), 0.05);
       const el = clock.elapsedTime;
+
+      if (intro < 1) {
+        intro = Math.min(1, intro + dt / 1.7);
+        const e = 1 - Math.pow(1 - intro, 3);
+        camera.position.lerpVectors(camStart, camEnd, e);
+        camera.lookAt(0, 0.3, 0);
+      }
 
       // inertia + idle auto-rotate
       if (!dragging) {
@@ -381,6 +443,7 @@ export default function PcbScene() {
       });
       for (const d of disposables) d.dispose();
       composer?.dispose?.();
+      pmrem?.dispose?.();
       renderer.dispose();
       if (renderer.domElement.parentNode) renderer.domElement.parentNode.removeChild(renderer.domElement);
     };

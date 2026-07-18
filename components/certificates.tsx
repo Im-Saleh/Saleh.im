@@ -5,6 +5,29 @@ import { Reveal } from "./reveal";
 import { certificates, profile, pick, type Certificate } from "@/lib/data";
 import { useLang } from "./lang-provider";
 
+/* Proper, hand-drawn SVG icons per credential domain (no trademarked logos). */
+function CertIcon({ name, size = 26 }: { name: Certificate["icon"]; size?: number }) {
+  const p = { width: size, height: size, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.7, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
+  switch (name) {
+    case "web":
+      return (<svg {...p}><rect x="2.5" y="4" width="19" height="15" rx="2" /><path d="M2.5 8h19" /><circle cx="5" cy="6" r=".4" fill="currentColor" /><circle cx="6.6" cy="6" r=".4" fill="currentColor" /><path d="M8 12h5M8 15h8" /><rect x="15" y="11" width="4.5" height="5" rx="1" /></svg>);
+    case "js":
+      return (<svg {...p}><path d="m8 9-3 3 3 3M16 9l3 3-3 3M13.5 7l-3 10" /></svg>);
+    case "cs":
+      return (<svg {...p}><path d="M12 4 2.5 8.5 12 13l9.5-4.5L12 4Z" /><path d="M6 10.5V15c0 1.4 2.7 2.6 6 2.6s6-1.2 6-2.6v-4.5" /><path d="M21.5 8.5V14" /></svg>);
+    case "frontend":
+      return (<svg {...p}><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M3 9h18M8 4v5" /><rect x="5.5" y="11.5" width="5" height="6" rx="1" /><path d="M13 12h5M13 15h5M13 17.5h3" /></svg>);
+    case "network":
+      return (<svg {...p}><circle cx="12" cy="5" r="2.2" /><circle cx="5" cy="18" r="2.2" /><circle cx="19" cy="18" r="2.2" /><path d="M12 7.2 6.5 15.8M12 7.2l5.5 8.6M7 18h10" /></svg>);
+    case "electronics":
+      return (<svg {...p}><rect x="7" y="7" width="10" height="10" rx="1.5" /><path d="M10 3v2M14 3v2M10 19v2M14 19v2M3 10h2M3 14h2M19 10h2M19 14h2" /><circle cx="12" cy="12" r="1.6" fill="currentColor" /></svg>);
+    case "cloud":
+      return (<svg {...p}><path d="M7 18h9a4 4 0 0 0 .5-7.97 5.5 5.5 0 0 0-10.6 1A3.5 3.5 0 0 0 7 18Z" /></svg>);
+    default: // security
+      return (<svg {...p}><path d="M12 3 5 6v5c0 4.2 2.8 7.7 7 9 4.2-1.3 7-4.8 7-9V6l-7-3Z" /><path d="m9 11.5 2 2 4-4" /></svg>);
+  }
+}
+
 export function Certificates() {
   const { t, lang } = useLang();
   const [open, setOpen] = useState<Certificate | null>(null);
@@ -52,21 +75,18 @@ function CertCard({ c, lang, t, onVerify }: { c: Certificate; lang: "en" | "fa";
 
   const apply = () => {
     raf.current = 0;
-    const el = ref.current;
-    const p = pending.current;
+    const el = ref.current, p = pending.current;
     if (!el || !p) return;
     el.style.setProperty("--rx", `${p.rx.toFixed(2)}deg`);
     el.style.setProperty("--ry", `${p.ry.toFixed(2)}deg`);
     el.style.setProperty("--mx", `${p.mx.toFixed(1)}%`);
     el.style.setProperty("--my", `${p.my.toFixed(1)}%`);
   };
-
   const onMove = (e: React.PointerEvent) => {
     const el = ref.current;
     if (!el) return;
     const r = el.getBoundingClientRect();
-    const px = (e.clientX - r.left) / r.width;
-    const py = (e.clientY - r.top) / r.height;
+    const px = (e.clientX - r.left) / r.width, py = (e.clientY - r.top) / r.height;
     pending.current = { rx: (0.5 - py) * 9, ry: (px - 0.5) * 11, mx: px * 100, my: py * 100 };
     if (!raf.current) raf.current = requestAnimationFrame(apply);
   };
@@ -88,8 +108,8 @@ function CertCard({ c, lang, t, onVerify }: { c: Certificate; lang: "en" | "fa";
     >
       <div className="cert-tilt relative z-[1] flex h-full flex-col">
         <div className="flex items-start justify-between gap-3">
-          <span className="cert-mark h-12 w-12 shrink-0 font-display text-2xl" style={c.accent ? { color: "var(--accent)" } : undefined}>
-            {c.mark}
+          <span className="cert-badge grid h-14 w-14 shrink-0 place-items-center rounded-2xl" style={{ color: c.accent ? "var(--accent)" : "var(--accent-2)" }}>
+            <CertIcon name={c.icon} />
           </span>
           <span className="inline-flex items-center gap-1.5 text-[11px] font-medium cert-verified">
             <span className="cert-tick grid h-4 w-4 place-items-center rounded-full">
@@ -117,7 +137,7 @@ function CertCard({ c, lang, t, onVerify }: { c: Certificate; lang: "en" | "fa";
 
         <div className="mt-auto flex items-center justify-between border-t pt-4" style={{ borderColor: "var(--line)" }}>
           <span className="mono text-[10px] text-[var(--fg-2)] force-ltr">{c.credentialId}</span>
-          <button onClick={onVerify} className="link-sweep inline-flex items-center gap-1.5 text-sm font-medium" style={{ color: "var(--accent)" }}>
+          <button onClick={onVerify} className="cert-verify-btn inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium" style={{ borderColor: "color-mix(in srgb, var(--accent) 35%, transparent)", color: "var(--accent)" }}>
             {t.certs.verify}
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M7 17 17 7M8 7h9v9" /></svg>
           </button>
@@ -149,7 +169,7 @@ function CredentialModal({ c, lang, t, onClose }: { c: Certificate; lang: "en" |
         </button>
 
         <div className="relative flex items-center gap-3">
-          <span className="cert-mark grid h-14 w-14 place-items-center rounded-2xl font-display text-3xl" style={{ color: "var(--accent)" }}>{c.mark}</span>
+          <span className="cert-badge grid h-16 w-16 place-items-center rounded-2xl" style={{ color: "var(--accent)" }}><CertIcon name={c.icon} size={32} /></span>
           <div>
             <p className="label">{c.issuer}</p>
             <p className="mono mt-0.5 text-[11px] force-ltr" style={{ color: "#22c55e" }}>● {t.certs.verified}</p>
@@ -164,7 +184,6 @@ function CredentialModal({ c, lang, t, onClose }: { c: Certificate; lang: "en" |
             <Row label={t.certs.credential} value={c.credentialId || "—"} mono />
             <Row label={t.certs.issued} value={c.date} mono />
           </div>
-          {/* decorative "QR" seal derived from the credential id */}
           <div className="cred-qr grid shrink-0 rounded-xl p-2" style={{ gridTemplateColumns: `repeat(11, 1fr)`, background: "var(--bg-3)", border: "1px solid var(--line)" }} aria-hidden>
             {cells.map((on, i) => (
               <span key={i} style={{ width: 7, height: 7, background: on ? "var(--accent)" : "transparent", borderRadius: 1 }} />
@@ -199,7 +218,6 @@ function Row({ label, value, mono }: { label: string; value: string; mono?: bool
   );
 }
 
-/* deterministic on/off grid from a string — purely decorative */
 function qrCells(seed: string, n: number): boolean[] {
   let h = 2166136261;
   for (let i = 0; i < seed.length; i++) { h ^= seed.charCodeAt(i); h = Math.imul(h, 16777619); }
