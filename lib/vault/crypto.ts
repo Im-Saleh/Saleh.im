@@ -249,7 +249,8 @@ function serializeHeader(h: Header): Uint8Array {
 export type VaultContainer = {
   v: number;
   it: number;
-  salt: string;
+  salt: string; // per-seal HKDF salt
+  kdfSalt?: string; // v2: fixed PBKDF2 salt (so the master can be derived once & cached)
   ivGcm1: string;
   ivCtr: string;
   ivCbc: string;
@@ -349,6 +350,12 @@ export class VaultAuthError extends Error {
 }
 
 export async function open(password: string, container: VaultContainer, keyfile?: Uint8Array | null): Promise<string> {
+  // v2 containers derive the heavier master from the fixed kdfSalt, then reuse
+  // the shared cascade decrypt.
+  if ((container.v || 1) >= 2 && container.kdfSalt) {
+    const master = await deriveMasterV2(password, b64ToBytes(container.kdfSalt), container.it || KDF_ITERATIONS_V2, keyfile);
+    return openWithMaster(master, container);
+  }
   const salt = b64ToBytes(container.salt);
   const ivGcm1 = b64ToBytes(container.ivGcm1);
   const ivCtr = b64ToBytes(container.ivCtr);
@@ -419,6 +426,97 @@ export async function open(password: string, container: VaultContainer, keyfile?
   }
 
   // stage 3 — remove padding
+  return bytesToUtf8(unpad(padded));
+}
+
+/* ==========================================================================
+   V2 ENGINE — heavier, memory-hard KDF derived ONCE and cached in memory.
+
+   The v1 cascade re-ran PBKDF2 (600k) on every save, freezing the UI for
+   seconds. v2 separates the expensive key derivation (run once at unlock, on a
+   fixed salt) from the cheap per-save resealing (a fresh HKDF salt + the AES
+   cascade). That lets the KDF be much heavier — 1,000,000 PBKDF2-SHA-512
+   rounds followed by a scrypt-style memory-hard finish over SHA-512 — while
+   saves stay instant because they reuse the cached 512-bit master secret.
+   ========================================================================== */
+
+export const KDF_ITERATIONS_V2 = 1_000_000;
+export const MEMHARD_COST = 4096; // 64-byte blocks kept resident (≈256 KiB working set)
+const FORMAT_V2 = 2;
+
+/** scrypt-style ROMix over SHA-512 — forces sequential memory then random access. */
+async function memoryHard(seed: Uint8Array, cost = MEMHARD_COST): Promise<Uint8Array> {
+  const sha = async (b: Uint8Array) => new Uint8Array(await subtle().digest("SHA-512", b as BufferSource));
+  const V: Uint8Array[] = new Array(cost);
+  let x = await sha(seed);
+  for (let i = 0; i < cost; i++) { V[i] = x; x = await sha(x); } // fill (sequential memory)
+  const block = new Uint8Array(64);
+  for (let i = 0; i < cost; i++) {
+    const j = readU32be(x, 60) % cost; // last word of x indexes back into V (random access)
+    for (let k = 0; k < 64; k++) block[k] = x[k] ^ V[j][k];
+    x = await sha(block);
+  }
+  return x; // 64 bytes
+}
+
+/** v2 master: PBKDF2 (heavy) → memory-hard finish. Runs once; result is cached. */
+export async function deriveMasterV2(password: string, kdfSalt: Uint8Array, iterations: number, keyfile?: Uint8Array | null): Promise<Uint8Array> {
+  const pbkdf = await deriveMasterSecret(password, kdfSalt, iterations, keyfile);
+  return memoryHard(pbkdf);
+}
+
+/** Fast verifier from an already-derived master (no re-derivation). */
+export async function verifierFromMaster(master: Uint8Array, kdfSalt: Uint8Array): Promise<string> {
+  const hkdfKey = await subtle().importKey("raw", master as BufferSource, "HKDF", false, ["deriveBits"]);
+  return bytesToB64(await hkdfBytes(hkdfKey, kdfSalt, "vault:v2:verifier", 32));
+}
+
+/** Encrypt with a cached master — the fast per-save path (no KDF). */
+export async function sealWithMaster(master: Uint8Array, plaintext: string, iterations: number, kdfSalt: Uint8Array): Promise<VaultContainer> {
+  const salt = randomBytes(16); // per-seal HKDF salt
+  const keys = await deriveSubKeys(master, salt);
+  const ivGcm1 = randomBytes(12), ivCtr = randomBytes(16), ivCbc = randomBytes(16), ivGcm2 = randomBytes(12);
+  const header: Header = { version: FORMAT_V2, iterations, salt, ivGcm1, ivCtr, ivCbc, ivGcm2 };
+  const headerBytes = serializeHeader(header);
+  const padded = pad(utf8ToBytes(plaintext));
+  const c4 = new Uint8Array(await subtle().encrypt({ name: "AES-GCM", iv: ivGcm1 as BufferSource, tagLength: 128 }, keys.gcm1, padded as BufferSource));
+  const c5 = new Uint8Array(await subtle().encrypt({ name: "AES-CTR", counter: ivCtr as BufferSource, length: 64 }, keys.ctr, c4 as BufferSource));
+  const c6 = new Uint8Array(await subtle().encrypt({ name: "AES-CBC", iv: ivCbc as BufferSource }, keys.cbc, c5 as BufferSource));
+  const macCbc = new Uint8Array(await subtle().sign("HMAC", keys.macEtm, concatBytes(ivCbc, c6) as BufferSource));
+  const c7 = new Uint8Array(await subtle().encrypt({ name: "AES-GCM", iv: ivGcm2 as BufferSource, additionalData: headerBytes as BufferSource, tagLength: 128 }, keys.gcm2, concatBytes(macCbc, c6) as BufferSource));
+  const macEnv = new Uint8Array(await subtle().sign("HMAC", keys.macEnv, concatBytes(headerBytes, c7) as BufferSource));
+  return {
+    v: FORMAT_V2, it: iterations,
+    salt: bytesToB64(salt), kdfSalt: bytesToB64(kdfSalt),
+    ivGcm1: bytesToB64(ivGcm1), ivCtr: bytesToB64(ivCtr), ivCbc: bytesToB64(ivCbc), ivGcm2: bytesToB64(ivGcm2),
+    ct: bytesToB64(c7), mac: bytesToB64(macEnv),
+  };
+}
+
+/** Decrypt with a cached master — used on every unlocked read (instant). */
+export async function openWithMaster(master: Uint8Array, container: VaultContainer): Promise<string> {
+  const salt = b64ToBytes(container.salt);
+  const ivGcm1 = b64ToBytes(container.ivGcm1), ivCtr = b64ToBytes(container.ivCtr), ivCbc = b64ToBytes(container.ivCbc), ivGcm2 = b64ToBytes(container.ivGcm2);
+  const c7 = b64ToBytes(container.ct), macEnv = b64ToBytes(container.mac);
+  const keys = await deriveSubKeys(master, salt);
+  const header: Header = { version: container.v || FORMAT_V2, iterations: container.it || KDF_ITERATIONS_V2, salt, ivGcm1, ivCtr, ivCbc, ivGcm2 };
+  const headerBytes = serializeHeader(header);
+  const envOk = await subtle().verify("HMAC", keys.macEnv, macEnv as BufferSource, concatBytes(headerBytes, c7) as BufferSource);
+  if (!envOk) throw new VaultAuthError();
+  let outerPlain: Uint8Array;
+  try { outerPlain = new Uint8Array(await subtle().decrypt({ name: "AES-GCM", iv: ivGcm2 as BufferSource, additionalData: headerBytes as BufferSource, tagLength: 128 }, keys.gcm2, c7 as BufferSource)); }
+  catch { throw new VaultAuthError(); }
+  if (outerPlain.length < 64) throw new VaultAuthError();
+  const macCbc = outerPlain.slice(0, 64), c6 = outerPlain.slice(64);
+  const macCheck = new Uint8Array(await subtle().sign("HMAC", keys.macEtm, concatBytes(ivCbc, c6) as BufferSource));
+  if (!timingSafeEqual(macCheck, macCbc)) throw new VaultAuthError();
+  let c5: Uint8Array;
+  try { c5 = new Uint8Array(await subtle().decrypt({ name: "AES-CBC", iv: ivCbc as BufferSource }, keys.cbc, c6 as BufferSource)); }
+  catch { throw new VaultAuthError(); }
+  const c4 = new Uint8Array(await subtle().decrypt({ name: "AES-CTR", counter: ivCtr as BufferSource, length: 64 }, keys.ctr, c5 as BufferSource));
+  let padded: Uint8Array;
+  try { padded = new Uint8Array(await subtle().decrypt({ name: "AES-GCM", iv: ivGcm1 as BufferSource, tagLength: 128 }, keys.gcm1, c4 as BufferSource)); }
+  catch { throw new VaultAuthError(); }
   return bytesToUtf8(unpad(padded));
 }
 

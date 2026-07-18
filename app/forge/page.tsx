@@ -4,13 +4,15 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { TOOLS, CATEGORIES, type ToolDef } from "./tools";
 import { TOOLS2, CATEGORIES2 } from "./tools2";
+import { NETSEC_TOOLS, NETSEC_CATEGORIES } from "./netsec-tools";
 import { ThemePicker } from "@/components/theme-picker";
 
-/* Merge the original toolset with the extended one, de-duplicating by id. */
+/* Merge the original toolset, the extended one, and the network/security set,
+   de-duplicating by id. */
 const ALL_TOOLS: ToolDef[] = (() => {
   const seen = new Set<string>();
   const merged: ToolDef[] = [];
-  for (const t of [...TOOLS, ...TOOLS2]) {
+  for (const t of [...TOOLS, ...TOOLS2, ...NETSEC_TOOLS]) {
     if (seen.has(t.id)) continue;
     seen.add(t.id);
     merged.push(t);
@@ -18,9 +20,9 @@ const ALL_TOOLS: ToolDef[] = (() => {
   return merged;
 })();
 
-/* Ordered, de-duplicated category list across both toolsets. */
+/* Ordered, de-duplicated category list across all toolsets. */
 const ALL_CATEGORIES: string[] = (() => {
-  const order = [...CATEGORIES, ...CATEGORIES2];
+  const order = [...CATEGORIES, ...CATEGORIES2, ...NETSEC_CATEGORIES];
   const seen = new Set<string>();
   const out: string[] = [];
   for (const c of order) {
@@ -46,12 +48,13 @@ const CAT_COLOR: Record<string, string> = {
   Network: "#34d399",
   Random: "#c084fc",
   Time: "#2dd4bf",
+  Security: "#f43f5e",
 };
 const catColor = (c: string) => CAT_COLOR[c] || "var(--accent)";
 
 const CAT_ICON: Record<string, string> = {
   Data: "⛁", Encode: "🔐", Generate: "✦", Convert: "⇌", Text: "Aa", CSS: "❏", Web: "🌐",
-  Math: "∑", Color: "🎨", Dev: "⌂", Network: "🖧", Random: "🎲", Time: "⏱",
+  Math: "∑", Color: "🎨", Dev: "⌂", Network: "🖧", Random: "🎲", Time: "⏱", Security: "🛡",
 };
 
 export default function ForgePage() {
