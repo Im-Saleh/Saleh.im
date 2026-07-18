@@ -34,7 +34,7 @@ type Dict = {
   };
   skills: { eyebrow: string; heading1: string; heading2: string; sub: string };
   electronics: { eyebrow: string; heading1: string; heading2: string; sub: string; hint: string; poweredBy: string };
-  certs: { eyebrow: string; heading1: string; heading2: string; sub: string; verify: string; verified: string; issued: string };
+  certs: { eyebrow: string; heading1: string; heading2: string; sub: string; verify: string; verified: string; issued: string; credential: string; verifiedBy: string; holder: string; close: string; authentic: string };
   journey: { eyebrow: string; heading: string; range: string };
   projects: { eyebrow: string; heading1: string; heading2: string; all: string; live: string; repoBadge: string };
   shell: { eyebrow: string; heading1: string; heading2: string; sub: string; typeHelp: string; orOpen: string };
@@ -90,6 +90,11 @@ const en: Dict = {
     verify: "Verify",
     verified: "Verified",
     issued: "Issued",
+    credential: "Credential ID",
+    verifiedBy: "Verified by saleh.im",
+    holder: "Issued to",
+    close: "Close",
+    authentic: "This credential is authentic",
   },
   journey: { eyebrow: "05 / Journey", heading: "The road so far", range: "2022 → today" },
   projects: {
@@ -170,6 +175,11 @@ const fa: Dict = {
     verify: "راستی‌آزمایی",
     verified: "تأییدشده",
     issued: "صدور",
+    credential: "شناسه‌ی مدرک",
+    verifiedBy: "تأییدشده توسط saleh.im",
+    holder: "صادرشده برای",
+    close: "بستن",
+    authentic: "این مدرک معتبر است",
   },
   journey: { eyebrow: "۰۵ / مسیر", heading: "راهی که تا اینجا آمده‌ام", range: "۲۰۲۲ تا امروز" },
   projects: {
