@@ -1,13 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef } from "react";
 
 /**
- * A thin scroll-progress bar pinned to the top of the viewport, plus a
- * subtle percentage read-out. rAF-throttled, passive listener — zero jank.
+ * A thin scroll-progress bar pinned to the top of the viewport. The width is
+ * written straight to the DOM inside a rAF — no React state, so scrolling never
+ * triggers a re-render (zero jank on mobile).
  */
 export function ScrollProgress() {
-  const [pct, setPct] = useState(0);
+  const barRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let ticking = false;
@@ -15,7 +16,7 @@ export function ScrollProgress() {
       const h = document.documentElement;
       const max = h.scrollHeight - h.clientHeight;
       const p = max > 0 ? (h.scrollTop / max) * 100 : 0;
-      setPct(p);
+      if (barRef.current) barRef.current.style.width = `${p}%`;
       ticking = false;
     };
     const onScroll = () => {
@@ -35,9 +36,10 @@ export function ScrollProgress() {
   return (
     <div className="pointer-events-none fixed inset-x-0 top-0 z-[70] h-[3px]" aria-hidden>
       <div
-        className="h-full origin-left transition-[width] duration-150 ease-out"
+        ref={barRef}
+        className="h-full origin-left"
         style={{
-          width: `${pct}%`,
+          width: "0%",
           background: "linear-gradient(90deg, var(--accent), var(--accent-2))",
           boxShadow: "0 0 12px var(--glow)",
         }}

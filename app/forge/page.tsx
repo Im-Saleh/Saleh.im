@@ -188,8 +188,9 @@ export default function ForgePage() {
       </header>
 
       <div className="mx-auto flex max-w-[104rem] gap-6 px-4 py-6 sm:px-6">
-        {/* sidebar */}
-        <aside className={`${navOpen ? "block" : "hidden"} shrink-0 lg:block lg:w-72`}>
+        {/* sidebar — overlays the content on small screens, docked column on desktop */}
+        {navOpen && <div className="fixed inset-0 z-30 bg-black/40 lg:hidden" onClick={() => setNavOpen(false)} aria-hidden />}
+        <aside className={`${navOpen ? "block" : "hidden"} max-lg:fixed max-lg:inset-y-0 max-lg:start-0 max-lg:z-40 max-lg:w-80 max-lg:max-w-[86vw] max-lg:overflow-y-auto max-lg:border-e max-lg:p-4 shrink-0 lg:block lg:w-72`} style={{ background: "var(--bg)" }}>
           <div className="lg:sticky lg:top-32">
             <div className="relative mb-3">
               <input

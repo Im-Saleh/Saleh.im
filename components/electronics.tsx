@@ -1,14 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import dynamic from "next/dynamic";
 import { Reveal } from "./reveal";
 import { electronics, pick, type ElectronicsSkill } from "@/lib/data";
 import { useLang } from "./lang-provider";
-
-/* The heavy WebGL scene is code-split and only fetched when the board scrolls
-   into view (Three.js never touches the initial page load). */
-const PcbScene = dynamic(() => import("./pcb-scene"), { ssr: false });
 
 function SkillIcon({ name }: { name: string }) {
   const common = { width: 20, height: 20, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.7, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
@@ -30,11 +25,10 @@ export function Electronics() {
   return (
     <section id="electronics" className="cv-section relative scroll-mt-24 overflow-hidden py-24 sm:py-32">
       <span className="section-index pointer-events-none absolute end-2 top-10 select-none sm:end-6" aria-hidden>03</span>
-      <div className="pointer-events-none absolute -end-24 top-1/3 h-72 w-72 rounded-full aurora floaty-slow" style={{ background: "var(--accent-2)", opacity: 0.08 }} aria-hidden />
 
       <div className="wrap relative">
         <div className="grid items-center gap-12 lg:grid-cols-2 lg:gap-16">
-          {/* ---- Left: copy + interactive skill cards ---- */}
+          {/* ---- Left: copy + skill cards ---- */}
           <div>
             <Reveal>
               <p className="label">{t.electronics.eyebrow}</p>
@@ -56,9 +50,9 @@ export function Electronics() {
             </div>
           </div>
 
-          {/* ---- Right: the real-time 3D board on its own dark stage ---- */}
+          {/* ---- Right: lightweight static circuit-board illustration (SVG, no WebGL) ---- */}
           <Reveal variant="scale" delay={80}>
-            <PcbStage hint={t.electronics.hint} badge={t.electronics.poweredBy} />
+            <BoardArt />
           </Reveal>
         </div>
       </div>
@@ -66,11 +60,17 @@ export function Electronics() {
   );
 }
 
-/* An interactive skill card: cursor spotlight + 3D tilt + count-up percentage. */
+/* A skill card. On desktop (fine pointer) it gets a subtle spotlight + tilt;
+   on touch devices those handlers never attach, so scrolling stays smooth. */
 function SkillCard({ s, lang }: { s: ElectronicsSkill; lang: "en" | "fa" }) {
   const ref = useRef<HTMLDivElement>(null);
   const raf = useRef(0);
   const pending = useRef<{ rx: number; ry: number; mx: number; my: number } | null>(null);
+  const [fine, setFine] = useState(false);
+
+  useEffect(() => {
+    setFine(typeof window !== "undefined" && window.matchMedia("(pointer: fine)").matches);
+  }, []);
 
   const faDigit = (n: number | string) =>
     lang === "fa" ? String(n).replace(/\d/g, (d) => "۰۱۲۳۴۵۶۷۸۹"[+d]) : String(n);
@@ -85,6 +85,7 @@ function SkillCard({ s, lang }: { s: ElectronicsSkill; lang: "en" | "fa" }) {
     el.style.setProperty("--my", `${p.my.toFixed(1)}%`);
   };
   const onMove = (e: React.PointerEvent) => {
+    if (!fine) return;
     const el = ref.current;
     if (!el) return;
     const r = el.getBoundingClientRect();
@@ -124,9 +125,9 @@ function SkillCard({ s, lang }: { s: ElectronicsSkill; lang: "en" | "fa" }) {
   return (
     <div
       ref={ref}
-      onPointerMove={onMove}
-      onPointerLeave={onLeave}
-      className="skill-card group relative overflow-hidden rounded-2xl border p-4 sm:p-5"
+      onPointerMove={fine ? onMove : undefined}
+      onPointerLeave={fine ? onLeave : undefined}
+      className={`skill-card group relative overflow-hidden rounded-2xl border p-4 sm:p-5${fine ? "" : " skill-card-static"}`}
       style={{ borderColor: "var(--line-2)", background: "var(--bg-2)" }}
     >
       <div className="skill-tilt relative z-[1]">
@@ -150,53 +151,74 @@ function SkillCard({ s, lang }: { s: ElectronicsSkill; lang: "en" | "fa" }) {
   );
 }
 
-/* Dark "product stage" that lazily mounts the WebGL board once it's near the
-   viewport, with a graceful fallback when WebGL/motion isn't available. */
-function PcbStage({ hint, badge }: { hint: string; badge: string }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [mount, setMount] = useState(false);
-  const [ok, setOk] = useState(true);
-
-  useEffect(() => {
-    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    let webgl = false;
-    try {
-      const c = document.createElement("canvas");
-      webgl = !!(c.getContext("webgl2") || c.getContext("webgl"));
-    } catch { webgl = false; }
-    if (reduced || !webgl) { setOk(false); return; }
-
-    const el = ref.current;
-    if (!el || typeof IntersectionObserver === "undefined") { setMount(true); return; }
-    const io = new IntersectionObserver(
-      ([e]) => { if (e.isIntersecting) { setMount(true); io.disconnect(); } },
-      { rootMargin: "300px" }
-    );
-    io.observe(el);
-    return () => io.disconnect();
-  }, []);
-
+/* Static, dependency-free circuit-board artwork. Pure SVG so it costs almost
+   nothing to render and never blocks the main thread on mobile. */
+function BoardArt() {
   return (
-    <div className="relative">
-      <div ref={ref} className="pcb-viewport relative aspect-[5/4] w-full overflow-hidden rounded-[26px]">
-        {mount && ok ? (
-          <PcbScene />
-        ) : (
-          <div className="absolute inset-0 grid place-items-center">
-            <div className="pcb-poster" aria-hidden />
-            <span className="relative mono text-xs tracking-widest text-white/50">{ok ? "· loading 3D ·" : "PCB"}</span>
-          </div>
-        )}
-        <div className="pointer-events-none absolute inset-0 rounded-[26px] ring-1 ring-inset ring-white/10" aria-hidden />
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 rounded-b-[26px] bg-gradient-to-t from-black/50 to-transparent" aria-hidden />
-        <div className="pointer-events-none absolute bottom-3 start-4 flex items-center gap-2">
-          <span className="grid h-6 w-6 place-items-center rounded-full bg-white/10 text-[11px] text-white/80 backdrop-blur">↻</span>
-          <span className="mono text-[11px] text-white/70">{hint}</span>
-        </div>
-      </div>
-      <div className="mt-3 flex justify-end px-1">
-        <span className="chip force-ltr text-[10px]">{badge}</span>
-      </div>
+    <div
+      className="relative aspect-[5/4] w-full overflow-hidden rounded-[26px] border"
+      style={{ borderColor: "var(--line-2)", background: "linear-gradient(160deg, var(--bg-2), var(--bg-3))" }}
+    >
+      <svg viewBox="0 0 500 400" className="absolute inset-0 h-full w-full" role="img" aria-label="Circuit board illustration">
+        <defs>
+          <linearGradient id="chipGrad" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stopColor="var(--accent)" stopOpacity="0.9" />
+            <stop offset="1" stopColor="var(--accent-2)" stopOpacity="0.75" />
+          </linearGradient>
+          <pattern id="dots" width="26" height="26" patternUnits="userSpaceOnUse">
+            <circle cx="1.5" cy="1.5" r="1.2" fill="var(--line-2)" opacity="0.5" />
+          </pattern>
+        </defs>
+
+        {/* dotted substrate */}
+        <rect width="500" height="400" fill="url(#dots)" />
+
+        {/* copper traces */}
+        <g fill="none" stroke="var(--accent)" strokeWidth="2.2" opacity="0.55" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M60 90 H160 V150 H250" />
+          <path d="M250 150 H360 V70 H440" />
+          <path d="M60 300 H140 V240 H250 V150" />
+          <path d="M250 250 H330 V330 H430" />
+          <path d="M170 330 V250" />
+        </g>
+        <g fill="none" stroke="var(--accent-2)" strokeWidth="2.2" opacity="0.4" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M90 60 V120 H200" />
+          <path d="M420 130 V210 H300" />
+        </g>
+
+        {/* pads */}
+        {[[60,90],[160,150],[360,70],[440,70],[140,300],[330,330],[430,330],[90,60],[420,210]].map(([x,y],i)=>(
+          <circle key={i} cx={x} cy={y} r="4.5" fill="none" stroke="var(--accent)" strokeWidth="2" opacity="0.7" />
+        ))}
+
+        {/* central SoC */}
+        <g>
+          <rect x="205" y="165" width="90" height="90" rx="10" fill="url(#chipGrad)" />
+          <rect x="205" y="165" width="90" height="90" rx="10" fill="none" stroke="var(--fg)" strokeWidth="1" opacity="0.15" />
+          <text x="250" y="215" textAnchor="middle" fontFamily="monospace" fontSize="13" fill="var(--on-accent)" opacity="0.85">SLH</text>
+          {/* pins */}
+          {[0,1,2,3,4].map((i)=>(
+            <g key={i}>
+              <rect x={214 + i*17} y="157" width="7" height="9" rx="1.5" fill="var(--line-2)" />
+              <rect x={214 + i*17} y="254" width="7" height="9" rx="1.5" fill="var(--line-2)" />
+              <rect x="197" y={174 + i*17} width="9" height="7" rx="1.5" fill="var(--line-2)" />
+              <rect x="294" y={174 + i*17} width="9" height="7" rx="1.5" fill="var(--line-2)" />
+            </g>
+          ))}
+        </g>
+
+        {/* small components */}
+        <rect x="120" y="130" width="34" height="20" rx="3" fill="var(--bg)" stroke="var(--line-2)" strokeWidth="1.5" />
+        <rect x="350" y="300" width="34" height="20" rx="3" fill="var(--bg)" stroke="var(--line-2)" strokeWidth="1.5" />
+        <rect x="360" y="120" width="20" height="34" rx="3" fill="var(--bg)" stroke="var(--line-2)" strokeWidth="1.5" />
+        {/* status LED */}
+        <circle cx="150" cy="240" r="7" fill="var(--accent-2)" />
+        <circle cx="150" cy="240" r="12" fill="none" stroke="var(--accent-2)" strokeWidth="1.5" opacity="0.4" />
+        {/* electrolytic cap */}
+        <circle cx="410" cy="255" r="18" fill="var(--bg)" stroke="var(--line-2)" strokeWidth="1.5" />
+        <path d="M402 255 H418" stroke="var(--fg-2)" strokeWidth="1.5" />
+      </svg>
+      <div className="pointer-events-none absolute inset-0 rounded-[26px] ring-1 ring-inset" style={{ borderColor: "var(--line)" }} aria-hidden />
     </div>
   );
 }
@@ -224,5 +246,3 @@ function MeterBar({ level }: { level: number }) {
     />
   );
 }
-
-
