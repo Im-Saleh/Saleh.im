@@ -758,7 +758,7 @@ export default function AperturePage() {
         </div>
 
         {panelOpen && (
-          <aside className="flex w-72 shrink-0 flex-col border-s" style={{ borderColor: "var(--line)", background: "var(--bg-2)" }}>
+          <aside className="absolute inset-y-0 end-0 z-30 flex w-72 max-w-[86vw] shrink-0 flex-col border-s shadow-2xl sm:relative sm:inset-auto sm:z-auto sm:max-w-none sm:shadow-none" style={{ borderColor: "var(--line)", background: "var(--bg-2)" }}>
             <div className="flex border-b" style={{ borderColor: "var(--line)" }}>
               {(["inspector", "layers", "find"] as const).map((tb) => (
                 <button key={tb} onClick={() => setPanelTab(tb)} className="flex-1 py-2.5 text-xs font-semibold transition-colors" style={panelTab === tb ? { color: "var(--fg)", boxShadow: "inset 0 -2px 0 var(--accent)" } : { color: "var(--fg-2)" }}>

@@ -1765,3 +1765,62 @@ a:hover > .logo-mark,
   transform: translateY(-1px);
   box-shadow: 0 12px 26px -10px var(--glow);
 }
+
+
+/* =========================================================================
+   MOBILE / TOUCH PERFORMANCE
+   Heavy blur filters, backdrop-filter and always-on repaint animations are
+   the main causes of slow loads and scroll jank on phones. For coarse
+   pointers we drop them entirely — the static look is preserved but the
+   compositor no longer has to repaint every frame while scrolling.
+   ========================================================================= */
+@media (hover: none) and (pointer: coarse) {
+  /* backdrop-filter on sticky headers is the single worst scroll offender */
+  *,
+  *::before,
+  *::after {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
+  /* film grain overlay: a full-screen fixed layer we don't need on mobile */
+  .grain::after { display: none !important; }
+
+  /* auroras: kill the 90px animated blur, keep a faint static wash */
+  .aurora {
+    animation: none !important;
+    filter: blur(42px) !important;
+    opacity: 0.22 !important;
+  }
+
+  /* give frosted panels a solid-ish fallback now that blur is gone */
+  .glass { background: color-mix(in srgb, var(--bg) 90%, transparent) !important; }
+
+  /* stop all continuous / repaint-heavy animations */
+  .conic-sheen,
+  .gradient-text,
+  .gradient-text-anim,
+  .skill-card::before,
+  .meter-fill::after,
+  .holo-card::before,
+  .cred-sheen,
+  .pcb-poster,
+  .pulse-ring::before,
+  .animate-float,
+  .floaty,
+  .floaty-slow {
+    animation: none !important;
+  }
+
+  /* card tilt / spotlight are pointer-driven — make sure nothing lingers */
+  .skill-card,
+  .skill-card .skill-tilt { transform: none !important; }
+  .skill-card::before,
+  .sheen::before { opacity: 0 !important; }
+
+  /* trim layer-promotion hints so mobile GPUs don't run out of memory */
+  .aurora,
+  .marquee,
+  .floaty,
+  .floaty-slow { will-change: auto !important; }
+}
